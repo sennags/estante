@@ -23,7 +23,7 @@ Aplicação web para escritores organizarem e terminarem suas histórias, reunin
   - O capítulo tem um narrador padrão, que a cena herda ou troca por outro: um personagem das fichas ou um narrador externo.
   - O cartão mostra o narrador, os personagens e quantos fios surgiram ou foram resolvidos ali, e leva direto ao capítulo no editor.
   - Quando um capítulo é apagado, as cenas dele vão para a coluna "Cenas sem capítulo".
-- **Fios narrativos**: mistérios, promessas, conflitos, pistas plantadas e objetos importantes que a história abriu.
+- **Fios narrativos**: mistérios, promessas, conflitos, acontecimentos e objetos importantes que a história abriu.
   - Cada fio fica ligado à cena e ao capítulo onde surgiu. Se a cena muda de capítulo, o fio vai junto.
   - Um fio pode ser marcado como resolvido, com a cena e o modo, ou como abandonado de propósito, com o motivo. Também pode ser reaberto.
   - A tela "Fios narrativos" filtra por situação, tipo e capítulo, e avisa quando um fio está aberto há muitos capítulos ou foi resolvido antes de surgir.

@@ -103,13 +103,13 @@ export interface Scene {
   updatedAt: number;
 }
 
-export type ThreadKind = 'misterio' | 'promessa' | 'conflito' | 'pista' | 'objeto';
+export type ThreadKind = 'misterio' | 'promessa' | 'conflito' | 'acontecimento' | 'objeto';
 
 export const THREAD_KIND_LABEL: Record<ThreadKind, string> = {
   misterio: 'Mistério',
   promessa: 'Promessa',
   conflito: 'Conflito',
-  pista: 'Pista plantada',
+  acontecimento: 'Acontecimento',
   objeto: 'Objeto importante',
 };
 
@@ -165,6 +165,12 @@ db.version(3).stores({
   scenes: 'id, storyId, chapterId',
   threads: 'id, storyId, status, originSceneId, endSceneId',
 });
+// "Pista plantada" became "Acontecimento".
+db.version(4).upgrade((tx) =>
+  tx.table('threads').toCollection().modify((t) => {
+    if (t.kind === 'pista') t.kind = 'acontecimento';
+  }),
+);
 
 export const COVER_COLORS = ['#6E2E2B', '#24344D', '#2F4A3F', '#B88A3B', '#D9CBB0', '#4B3B5C'];
 

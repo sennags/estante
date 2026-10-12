@@ -20,5 +20,11 @@ export const supabase = url && key
  */
 export const GOOGLE_LOGIN = !!supabase && import.meta.env.VITE_GOOGLE_LOGIN === 'true';
 
+/**
+ * VITE_EMAIL_LOGIN=true brings back e-mail and password. Off while Supabase's
+ * default sender only reaches the project team (confirmation links would not arrive).
+ */
+export const EMAIL_LOGIN = !!supabase && import.meta.env.VITE_EMAIL_LOGIN === 'true';
+
 /** Where links from e-mails and Google send the author back to. */
 export const appUrl = () => window.location.origin + window.location.pathname;

@@ -3,7 +3,7 @@ import type { AuthError } from '@supabase/supabase-js';
 import { Modal } from './Modal';
 import { Icon } from './Icon';
 import { tell } from './Ask';
-import { appUrl, GOOGLE_LOGIN, supabase } from '../sync/supabase';
+import { appUrl, EMAIL_LOGIN, GOOGLE_LOGIN, supabase } from '../sync/supabase';
 import './AccountMenu.css';
 import { finishRecovery, getAccountState, pendingLabel, signOut, subscribeAccount, unsentChanges } from '../sync/engine';
 
@@ -103,6 +103,34 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
     );
   }
 
+  const legal = (
+    <p className="account-legal">
+      Ao entrar ou criar uma conta, você concorda com os{' '}
+      <a href="termos.html" target="_blank" rel="noopener">Termos de Serviço</a> e a{' '}
+      <a href="privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a>.
+    </p>
+  );
+
+  // Until e-mails can reach everyone (own SMTP), only Google.
+  if (!EMAIL_LOGIN && GOOGLE_LOGIN) {
+    return (
+      <Modal title="Entrar" onClose={onClose}>
+        <div className="account-form">
+          <p className="account-intro">
+            Com uma conta, suas histórias ficam guardadas na nuvem e abrem em qualquer aparelho. Sem ela, tudo continua só neste navegador.
+          </p>
+          {error && <p role="alert" className="form-error">{error}</p>}
+          <button type="button" className="btn btn-outline" data-autofocus disabled={busy} onClick={google}>
+            <GoogleMark />
+            Entrar com Google
+          </button>
+          <p className="account-hint account-soon">Entrar com e-mail e senha volta em breve.</p>
+          {legal}
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <Modal title={TITLES[mode]} onClose={onClose}>
       <form className="account-form" onSubmit={submit}>
@@ -150,13 +178,7 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
           </>
         )}
 
-        {mode !== 'esqueci' && (
-          <p className="account-legal">
-            Ao entrar ou criar uma conta, você concorda com os{' '}
-            <a href="termos.html" target="_blank" rel="noopener">Termos de Serviço</a> e a{' '}
-            <a href="privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a>.
-          </p>
-        )}
+        {mode !== 'esqueci' && legal}
 
         <p className="account-switch">
           {mode === 'entrar' ? (

@@ -8,7 +8,6 @@ import { PageBreak, Pagination, type PageLayout } from '../editor/pagination';
 import { Icon } from '../components/Icon';
 import { ReferencePanel } from '../components/ReferencePanel';
 import { VersionsDialog } from '../components/VersionsDialog';
-import { exportDocx, exportPdf } from '../lib/export';
 import { chapterLabel, countWords, formatNumber } from '../lib/text';
 import { useStory } from './StoryLayout';
 import './ChapterEditor.css';
@@ -36,7 +35,7 @@ export function ChapterEditor() {
 type SaveState = 'saved' | 'pending' | 'saving';
 
 function ChapterSheet({ chapter }: { chapter: Chapter }) {
-  const { story, chapters, focus, setFocus, openMenu } = useStory();
+  const { story, chapters, focus, setFocus, openMenu, setBeforeExport } = useStory();
   const [title, setTitle] = useState(chapter.title);
   const [words, setWords] = useState(chapter.wordCount);
   const [layout, setLayout] = useState<PageLayout | null>(null);
@@ -45,8 +44,6 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
   const [toolsOpen, setToolsOpen] = useState(true);
   const [refsOpen, setRefsOpen] = useState(isWide);
   const [versionsOpen, setVersionsOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
 
   // Pages of the chapters before this one, so numbering runs through the book.
   const firstPage = useMemo(
@@ -155,20 +152,11 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
     });
   }
 
-  async function runExport(kind: 'docx' | 'pdf') {
-    setExportOpen(false);
-    setExporting(true);
-    try {
-      await flushRef.current();
-      const all = await db.chapters.where('storyId').equals(story.id).sortBy('order');
-      await (kind === 'docx' ? exportDocx(story, all) : exportPdf(story, all));
-    } catch (err) {
-      console.error(err);
-      alert('Não foi possível exportar. Tente de novo.');
-    } finally {
-      setExporting(false);
-    }
-  }
+  // Exporting from the sidebar first saves what was just typed here.
+  useEffect(() => {
+    setBeforeExport(() => flushRef.current());
+    return () => setBeforeExport(undefined);
+  }, [setBeforeExport]);
 
   const pages = layout?.pages ?? chapter.pageCount ?? 1;
   const totalPages = chapters.reduce((n, c) => n + (c.id === chapter.id ? pages : c.pageCount || 1), 0);
@@ -188,10 +176,16 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
             {saveState === 'saved' && <Icon name="check" size={14} />}
             {saveLabel}
           </span>
+          {!focus && (
+            <button className="btn btn-ghost top-btn" aria-label="Versões" title="Versões" onClick={() => setVersionsOpen(true)}>
+              <Icon name="history" size={16} />
+              <span className="top-label">Versões</span>
+            </button>
+          )}
           {!refsOpen && !focus && (
-            <button className="btn btn-ghost refs-toggle" onClick={() => setRefsOpen(true)}>
+            <button className="btn btn-ghost top-btn" aria-label="Referências" title="Referências" onClick={() => setRefsOpen(true)}>
               <Icon name="panel" size={16} />
-              Referências
+              <span className="top-label">Referências</span>
             </button>
           )}
         </div>
@@ -233,33 +227,12 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
             <span className="toolbar-sep" />
             <span className="toolbar-count">{formatNumber(words)} palavras</span>
             <span className="toolbar-sep" />
-            <button className="toolbar-btn wide" aria-label={focus ? 'Sair do foco' : 'Modo foco'} title="Modo foco" aria-pressed={focus} onClick={() => setFocus(!focus)}>
+            {/* Focus mode is for big screens; phones already show only the sheet. */}
+            <button className="toolbar-btn wide focus-tool" aria-label={focus ? 'Sair do foco' : 'Modo foco'} title="Modo foco" aria-pressed={focus} onClick={() => setFocus(!focus)}>
               <Icon name="focus" size={16} />
               <span className="toolbar-label">{focus ? 'Sair do foco' : 'Modo foco'}</span>
             </button>
-            <button className="toolbar-btn wide" aria-label="Versões" title="Versões" onClick={() => setVersionsOpen(true)}>
-              <Icon name="history" size={16} />
-              <span className="toolbar-label">Versões</span>
-            </button>
-            <div className="export">
-              <button className="toolbar-btn wide" aria-label="Exportar" title="Exportar" aria-expanded={exportOpen} aria-haspopup="menu" disabled={exporting} onClick={() => setExportOpen((o) => !o)}>
-                <Icon name="download" size={16} />
-                <span className="toolbar-label">{exporting ? 'Exportando…' : 'Exportar'}</span>
-              </button>
-              {exportOpen && (
-                <div role="menu" className="export-menu">
-                  <button role="menuitem" onClick={() => runExport('docx')}>
-                    <Icon name="file" size={16} />
-                    Word (.docx)
-                  </button>
-                  <button role="menuitem" onClick={() => runExport('pdf')}>
-                    <Icon name="file" size={16} />
-                    PDF
-                  </button>
-                </div>
-              )}
-            </div>
-            <span className="toolbar-sep" />
+            <span className="toolbar-sep focus-tool" />
             <ToolButton label="Recolher ferramentas" onClick={() => setToolsOpen(false)}>
               <Icon name="chevronDown" />
             </ToolButton>

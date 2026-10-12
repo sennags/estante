@@ -33,7 +33,7 @@
 .menu-btn {
   display: none;
 }
-.refs-toggle {
+.top-btn {
   min-height: 36px;
   padding: 0 12px;
   font-size: 13px;
@@ -265,40 +265,6 @@
   opacity: 1;
 }
 
-.export {
-  position: relative;
-}
-.export-menu {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  right: 0;
-  min-width: 180px;
-  padding: 6px;
-  background: var(--paper);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: var(--shadow-pop);
-  display: flex;
-  flex-direction: column;
-}
-.export-menu button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  font-size: 14px;
-}
-.export-menu button:hover {
-  background: var(--accent-soft);
-}
-
 /* Versions dialog */
 .version-list {
   list-style: none;
@@ -368,6 +334,19 @@
   }
   .toolbar-count {
     font-size: 13px;
+  }
+}
+
+@media (max-width: 640px) {
+  .focus-tool {
+    display: none;
+  }
+  .top-label {
+    display: none;
+  }
+  .top-btn {
+    width: 40px;
+    padding: 0;
   }
 }
 

@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { addChapter, db, deleteChapter, getChapters, getScenes, moveChapter, STATUS_LABEL, type Chapter, type Entry, type Scene, type Story, type Thread } from '../db';
 import { Icon, type IconName } from '../components/Icon';
 import { StoryDialog } from '../components/StoryDialog';
+import { exportDocx, exportPdf } from '../lib/export';
 import { chapterName } from '../lib/text';
 import './StoryLayout.css';
 
@@ -16,6 +17,8 @@ type StoryCtx = {
   focus: boolean;
   setFocus: (on: boolean) => void;
   openMenu: () => void;
+  /** The open chapter registers how to save pending text before an export. */
+  setBeforeExport: (fn: (() => Promise<void>) | undefined) => void;
 };
 
 const Ctx = createContext<StoryCtx | null>(null);
@@ -32,6 +35,10 @@ export function StoryLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const location = useLocation();
+  const beforeExport = useRef<() => Promise<void>>(undefined);
+  const setBeforeExport = useCallback((fn: (() => Promise<void>) | undefined) => {
+    beforeExport.current = fn;
+  }, []);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
@@ -39,7 +46,7 @@ export function StoryLayout() {
   if (!story || story.deletedAt) return <Navigate to="/" replace />;
 
   return (
-    <Ctx.Provider value={{ story, chapters, scenes, threads, entries, focus, setFocus, openMenu: () => setMenuOpen(true) }}>
+    <Ctx.Provider value={{ story, chapters, scenes, threads, entries, focus, setFocus, openMenu: () => setMenuOpen(true), setBeforeExport }}>
       <div className={`story ${focus ? 'is-focus' : ''}`}>
         {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
         <Sidebar
@@ -49,6 +56,7 @@ export function StoryLayout() {
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
           onEdit={() => setEditing(true)}
+          beforeExport={() => beforeExport.current?.()}
         />
         <div className="story-main">
           <Outlet />
@@ -92,9 +100,10 @@ type SidebarProps = {
   open: boolean;
   onClose: () => void;
   onEdit: () => void;
+  beforeExport: () => Promise<void> | undefined;
 };
 
-function Sidebar({ story, chapters, openThreads, open, onClose, onEdit }: SidebarProps) {
+function Sidebar({ story, chapters, openThreads, open, onClose, onEdit, beforeExport }: SidebarProps) {
   const navigate = useNavigate();
   const { chapterId } = useParams();
   const [arranging, setArranging] = useState(false);
@@ -179,6 +188,8 @@ function Sidebar({ story, chapters, openThreads, open, onClose, onEdit }: Sideba
           Novo capítulo
         </button>
       </div>
+
+      <ExportMenu story={story} beforeExport={beforeExport} />
     </nav>
   );
 }
@@ -196,5 +207,47 @@ function Area({ icon, label, to, count, countLabel }: AreaProps) {
         </span>
       )}
     </NavLink>
+  );
+}
+
+function ExportMenu({ story, beforeExport }: { story: Story; beforeExport: () => Promise<void> | undefined }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function run(kind: 'docx' | 'pdf') {
+    setOpen(false);
+    setBusy(true);
+    try {
+      await beforeExport();
+      const all = await getChapters(story.id);
+      await (kind === 'docx' ? exportDocx(story, all) : exportPdf(story, all));
+    } catch (err) {
+      console.error(err);
+      alert('Não foi possível exportar. Tente de novo.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="sidebar-export">
+      <button className="btn btn-outline" aria-expanded={open} disabled={busy} onClick={() => setOpen((o) => !o)}>
+        <Icon name="download" size={16} />
+        {busy ? 'Exportando…' : 'Exportar história'}
+        <span className="sidebar-export-chevron"><Icon name={open ? 'chevronUp' : 'chevronDown'} size={16} /></span>
+      </button>
+      {open && (
+        <div className="sidebar-export-options">
+          <button onClick={() => run('docx')}>
+            <Icon name="file" size={16} />
+            Word (.docx)
+          </button>
+          <button onClick={() => run('pdf')}>
+            <Icon name="file" size={16} />
+            PDF
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

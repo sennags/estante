@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, isInTrash, STATUS_LABEL, type Story, type StoryStatus } from '../db';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
+import { Logo } from '../components/Logo';
 import { StoryDialog } from '../components/StoryDialog';
 import { chapterName, formatNumber, plural, relativeTime } from '../lib/text';
 import './Library.css';
@@ -45,7 +46,7 @@ export function Library() {
     <div className="library">
       <header className="library-header">
         <div className="brand">
-          <span style={{ color: 'var(--accent)' }}><Icon name="logo" size={28} stroke={1.6} /></span>
+          <Logo size={34} />
           <span className="brand-name">Lirismo</span>
         </div>
         <div className="library-actions">

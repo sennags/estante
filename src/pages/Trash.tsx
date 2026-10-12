@@ -74,8 +74,7 @@ export function Trash() {
           <div className="dialog-actions">
             <button className="btn btn-ghost" onClick={() => setDeleting(undefined)}>Cancelar</button>
             <button
-              className="btn btn-dark"
-              style={{ background: 'var(--danger)' }}
+              className="btn btn-solid-danger"
               onClick={async () => {
                 await deleteStory(deleting.id);
                 setDeleting(undefined);

@@ -6,6 +6,7 @@ import { Universe } from './pages/Universe';
 import { Trash } from './pages/Trash';
 import { Planning } from './pages/Planning';
 import { Threads } from './pages/Threads';
+import { AskHost } from './components/Ask';
 
 export function App() {
   return (
@@ -23,6 +24,7 @@ export function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <AskHost />
     </HashRouter>
   );
 }

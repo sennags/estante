@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { addChapter, db, deleteChapter, getChapters, getScenes, moveChapter, STATUS_LABEL, type Chapter, type Entry, type Scene, type Story, type Thread } from '../db';
 import { Icon, type IconName } from '../components/Icon';
 import { StoryDialog } from '../components/StoryDialog';
+import { ask, tell } from '../components/Ask';
 import { exportPdf } from '../lib/export';
 import { refreshPageCounts } from '../editor/pageCount';
 import { chapterName } from '../lib/text';
@@ -123,10 +124,22 @@ function Sidebar({ story, chapters, openThreads, open, onClose, onEdit, beforeEx
   }
 
   async function removeChapter(c: Chapter) {
-    if (chapters.length === 1) return alert('A história precisa de pelo menos um capítulo.');
+    if (chapters.length === 1) {
+      return tell({ title: 'Este capítulo fica', message: <p>A história precisa de pelo menos um capítulo. Crie outro antes de apagar este.</p> });
+    }
     const scenes = await db.scenes.where('chapterId').equals(c.id).count();
-    const note = scenes ? ` ${scenes === 1 ? 'A cena dele vai' : `As ${scenes} cenas dele vão`} para "Cenas" no planejamento.` : '';
-    if (!confirm(`Apagar "${chapterName(c.order, c.title)}"? O texto e as versões salvas serão perdidos.${note}`)) return;
+    const ok = await ask({
+      title: 'Apagar o capítulo?',
+      message: (
+        <>
+          <p>O texto de <strong>{chapterName(c.order, c.title)}</strong> e as versões salvas serão apagados. Não dá para desfazer.</p>
+          {!!scenes && <p>{scenes === 1 ? 'A cena dele vai' : `As ${scenes} cenas dele vão`} para "Cenas" no planejamento.</p>}
+        </>
+      ),
+      confirm: 'Apagar capítulo',
+      danger: true,
+    });
+    if (!ok) return;
     await deleteChapter(c);
     if (c.id === chapterId) navigate(`/historia/${story.id}`);
   }
@@ -229,7 +242,7 @@ function ExportMenu({ story, beforeExport }: { story: Story; beforeExport: () =>
       await exportPdf(story, await getChapters(story.id));
     } catch (err) {
       console.error(err);
-      alert('Não foi possível exportar. Tente de novo.');
+      tell({ title: 'Não deu para exportar', message: <p>Algo deu errado ao montar o PDF. Seu texto está salvo; tente de novo daqui a pouco.</p> });
     } finally {
       setBusy(false);
     }

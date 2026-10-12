@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { createEntry, db, KIND_LABEL, type Entry, type EntryKind } from '../db';
 import { Icon } from '../components/Icon';
+import { ask } from '../components/Ask';
 import { useStory } from './StoryLayout';
 import './Universe.css';
 
@@ -113,7 +114,13 @@ function EntryForm({ entry, onBack }: { entry: Entry; onBack: () => void }) {
   };
 
   async function remove() {
-    if (!confirm(`Apagar a ficha "${draft.name || 'Sem nome'}"?`)) return;
+    const ok = await ask({
+      title: 'Apagar a ficha?',
+      message: <p>A ficha <strong>{draft.name || 'Sem nome'}</strong> será apagada e não poderá ser recuperada.</p>,
+      confirm: 'Apagar ficha',
+      danger: true,
+    });
+    if (!ok) return;
     dirty.current = false;
     await db.entries.delete(entry.id);
     onBack();

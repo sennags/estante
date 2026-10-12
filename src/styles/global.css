@@ -161,6 +161,14 @@ a {
 .btn-danger:hover {
   background: #f4e1dc;
 }
+.btn-solid-danger {
+  background: var(--danger);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.btn-solid-danger:hover {
+  background: #74241f;
+}
 .icon-btn {
   width: 44px;
   height: 44px;
@@ -253,6 +261,19 @@ a {
 }
 .dialog-head h2 {
   font-size: 26px;
+}
+.ask-message {
+  font-size: 17px;
+  line-height: 1.55;
+}
+.ask-message p {
+  margin: 0;
+}
+.ask-message strong {
+  font-weight: 600;
+}
+.ask-message p + p {
+  margin-top: 10px;
 }
 .dialog-actions {
   display: flex;

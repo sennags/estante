@@ -6,6 +6,7 @@ import { chapterName } from '../lib/text';
 import { useStory } from '../pages/StoryLayout';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
+import { ask } from './Ask';
 import { NarratorSelect } from './NarratorSelect';
 import { ThreadDialogs, type ThreadDialogState } from './ThreadDialogs';
 import './SceneDialog.css';
@@ -56,10 +57,23 @@ export function SceneDialog({ scene, onClose }: { scene: Scene; onClose: () => v
 
   async function remove() {
     const linked = new Set([...born, ...closed]).size;
-    const warn = linked
-      ? `\n\n${linked === 1 ? 'Um fio narrativo está ligado' : `${linked} fios narrativos estão ligados`} a esta cena. ${linked === 1 ? 'Ele continua' : 'Eles continuam'}, ligado${linked === 1 ? '' : 's'} só ao capítulo.`
-      : '';
-    if (!confirm(`Apagar a cena "${sceneName(scene, scenes)}"?${warn}`)) return;
+    const ok = await ask({
+      title: 'Apagar a cena?',
+      message: (
+        <>
+          <p>A cena <strong>{sceneName(scene, scenes)}</strong> sai do planejamento. O texto do capítulo não muda.</p>
+          {!!linked && (
+            <p>
+              {linked === 1 ? 'Um fio narrativo está ligado' : `${linked} fios narrativos estão ligados`} a ela.{' '}
+              {linked === 1 ? 'Ele continua' : 'Eles continuam'}, ligado{linked === 1 ? '' : 's'} só ao capítulo.
+            </p>
+          )}
+        </>
+      ),
+      confirm: 'Apagar cena',
+      danger: true,
+    });
+    if (!ok) return;
     dirty.current = false;
     await deleteScene(scene);
     onClose();

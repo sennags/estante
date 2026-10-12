@@ -22,8 +22,8 @@ export function Modal({ title, onClose, children, wide, locked }: ModalProps) {
     const reopen = () => mounted && locked && !dialog.open && dialog.showModal();
     dialog.addEventListener('close', reopen);
     if (!dialog.open) dialog.showModal();
-    // showModal() focuses the close button; start in the first field instead.
-    dialog.querySelector<HTMLElement>('form input:not([type=file]), form textarea')?.focus();
+    // showModal() focuses the close button; start in the first field (or a marked button) instead.
+    dialog.querySelector<HTMLElement>('[data-autofocus], form input:not([type=file]), form textarea')?.focus();
     return () => {
       mounted = false;
       dialog.removeEventListener('close', reopen);

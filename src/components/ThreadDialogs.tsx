@@ -5,6 +5,7 @@ import { chapterName } from '../lib/text';
 import { useStory } from '../pages/StoryLayout';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
+import { ask } from './Ask';
 import './ThreadDialogs.css';
 
 export const THREAD_KINDS = Object.keys(THREAD_KIND_LABEL) as ThreadKind[];
@@ -95,7 +96,19 @@ export function ThreadDialog({ storyId, chapters, scenes, thread, initial, onClo
   }
 
   async function remove() {
-    if (!thread || !confirm(`Apagar o fio "${thread.title}"? Se ele só foi resolvido ou deixado de lado, é melhor marcar assim em vez de apagar.`)) return;
+    if (!thread) return;
+    const ok = await ask({
+      title: 'Apagar o fio?',
+      message: (
+        <>
+          <p>O fio <strong>{thread.title}</strong> será apagado.</p>
+          <p>Se ele só foi resolvido ou deixado de lado, é melhor marcar assim: o painel guarda o caminho que ele fez.</p>
+        </>
+      ),
+      confirm: 'Apagar fio',
+      danger: true,
+    });
+    if (!ok) return;
     await db.threads.delete(thread.id);
     onClose();
   }

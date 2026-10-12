@@ -5,6 +5,7 @@ import { db, snapshotVersion, type ChapterVersion } from '../db';
 import { countWords, formatNumber, plainText } from '../lib/text';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
+import { ask } from './Ask';
 
 const dateFmt = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -32,7 +33,12 @@ export function VersionsDialog({ chapterId, editor, onClose }: Props) {
   }
 
   async function restore(v: ChapterVersion) {
-    if (!confirm(`Voltar o capítulo para a versão de ${dateFmt.format(v.createdAt)}? O texto atual fica guardado como uma versão.`)) return;
+    const ok = await ask({
+      title: 'Restaurar esta versão?',
+      message: <p>O capítulo volta a ser como estava em {dateFmt.format(v.createdAt)}. Não se preocupe: o texto de agora fica guardado como uma versão.</p>,
+      confirm: 'Restaurar',
+    });
+    if (!ok) return;
     const { json, words } = current();
     await snapshotVersion(chapterId, json, words, 'Antes de restaurar');
     editor.commands.setContent(v.content, { emitUpdate: true });
@@ -40,7 +46,13 @@ export function VersionsDialog({ chapterId, editor, onClose }: Props) {
   }
 
   async function remove(v: ChapterVersion) {
-    if (!confirm(`Apagar a versão de ${dateFmt.format(v.createdAt)}? Ela não poderá ser recuperada.`)) return;
+    const ok = await ask({
+      title: 'Apagar esta versão?',
+      message: <p>A versão de {dateFmt.format(v.createdAt)} será apagada e não poderá ser recuperada.</p>,
+      confirm: 'Apagar versão',
+      danger: true,
+    });
+    if (!ok) return;
     await db.versions.delete(v.id);
     if (preview?.id === v.id) setPreview(undefined);
   }

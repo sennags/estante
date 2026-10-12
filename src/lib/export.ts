@@ -183,8 +183,8 @@ export async function exportPdf(story: Story, chapters: Chapter[]) {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
   pdf.setTitle(story.title);
-  pdf.setCreator('Trama');
-  pdf.setProducer('Trama');
+  pdf.setCreator('Lirismo');
+  pdf.setProducer('Lirismo');
   pdf.setLanguage('pt-BR');
 
   const fonts = new Map<string, Promise<{ font: PDFFont; chars: Set<number> }>>();

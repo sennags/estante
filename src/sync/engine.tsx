@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import type { Session } from '@supabase/supabase-js';
 import { db, purgeTrash, type Story } from '../db';
-import { ask } from '../components/Ask';
+import { ask, tell } from '../components/Ask';
 import { plural } from '../lib/text';
 import { markFromSync, onLocalChanges, SYNCED_TABLES, type ChangeKey, type SyncedTable } from './middleware';
 import { supabase } from './supabase';
@@ -404,6 +404,30 @@ export async function startSync() {
 
   const { data } = await supabase.auth.getSession();
   await handleSession(data.session ?? latestSession);
+  await reportAuthError();
+}
+
+/**
+ * Google and e-mail links come back with ?error=... when something failed
+ * (the author cancelled, or the link expired). Supabase leaves it in the URL.
+ */
+async function reportAuthError() {
+  const url = new URL(window.location.href);
+  const hash = url.hash.startsWith('#error') ? new URLSearchParams(url.hash.slice(1)) : null;
+  const params = hash ?? url.searchParams;
+  const code = params.get('error_code') ?? params.get('error');
+  if (!code) return;
+  for (const name of ['error', 'error_code', 'error_description']) url.searchParams.delete(name);
+  if (hash) url.hash = '';
+  window.history.replaceState(window.history.state, '', url.toString());
+
+  if (code === 'access_denied') return; // cancelled on Google's screen
+  await tell({
+    title: 'Não foi possível entrar',
+    message: code === 'otp_expired'
+      ? 'Este link expirou ou já foi usado. Peça um novo e abra o mais recente.'
+      : 'Algo deu errado na volta para o Lirismo. Tente entrar de novo.',
+  });
 }
 
 /* ---------- Leaving the account ---------- */

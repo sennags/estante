@@ -14,8 +14,11 @@ export const supabase = url && key
     })
   : null;
 
-/** Turn on once the Google provider is set up in Supabase (Authentication → Providers). */
-export const GOOGLE_LOGIN = false;
+/**
+ * VITE_GOOGLE_LOGIN=true once the Google provider is set up in Supabase
+ * (Authentication → Providers): in .env.local to test, then on Cloudflare Pages.
+ */
+export const GOOGLE_LOGIN = !!supabase && import.meta.env.VITE_GOOGLE_LOGIN === 'true';
 
 /** Where links from e-mails and Google send the author back to. */
 export const appUrl = () => window.location.origin + window.location.pathname;

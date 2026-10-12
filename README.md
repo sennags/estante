@@ -14,7 +14,7 @@ Aplicação web para escritores organizarem e terminarem suas histórias, reunin
   - A barra de ferramentas pode ser recolhida.
   - **Versões**: uma cópia do capítulo é guardada sozinha a cada 10 minutos de escrita, e você também pode guardar uma na hora. Qualquer versão pode ser restaurada.
   - **Versões** fica no topo da folha, ao lado de Referências.
-- **Exportação** da história inteira em `.docx` e PDF, pelo botão abaixo dos capítulos no menu lateral.
+- **Exportação** da história inteira em PDF, no formato do livro (14 × 21 cm), pelo botão abaixo dos capítulos no menu lateral. O PDF tem as mesmas páginas e linhas do editor.
 - **Lixeira**: uma história apagada vai para a lixeira e fica lá por 7 dias. Nesse prazo dá para devolvê-la à estante ou apagá-la na hora; depois disso, ela é apagada sozinha.
 - **Rascunhos**: o que você digita ao criar ou editar uma história fica guardado até salvar, mesmo se fechar a janela. A janela só fecha pelo botão Cancelar ou pelo X.
 - **Personagens e universo**: fichas de personagens, lugares, objetos e regras do mundo. Personagens têm campos para motivações e relações. As fichas podem ser consultadas num painel ao lado da folha enquanto você escreve.
@@ -46,7 +46,7 @@ Para gerar a versão de produção, rode `npm run build`. O resultado vai para `
 
 ## Tecnologias
 
-React, TypeScript e Vite. Os dados ficam no IndexedDB do navegador, acessado pelo Dexie. O editor é feito com TipTap (ProseMirror), e o arrastar do planejamento usa o dnd-kit. A exportação usa `docx` e `pdfmake`. As fontes são Newsreader, Literata e Instrument Sans, servidas localmente pelo Fontsource.
+React, TypeScript e Vite. Os dados ficam no IndexedDB do navegador, acessado pelo Dexie. O editor é feito com TipTap (ProseMirror), e o arrastar do planejamento usa o dnd-kit. O PDF é gerado com o `pdf-lib`. As fontes são Newsreader, Literata e Instrument Sans, servidas localmente pelo Fontsource.
 
 ## Limitações conhecidas
 

@@ -22,7 +22,6 @@ const PATHS = {
   layout: 'M4 4h7v7H4z M13 4h7v4h-7z M13 10h7v10h-7z M4 13h7v7H4z',
   thread: 'M3 12c3-6 6-6 9 0s6 6 9 0',
   image: 'M4 5h16v14H4z M4 16l5-5 4 4 3-3 4 4 M16.5 9a1.5 1.5 0 1 1-3 0a1.5 1.5 0 1 1 3 0',
-  file: 'M6 3h9l4 4v14H6z M14 3v5h5',
   grip: 'M9 5v.01 M9 12v.01 M9 19v.01 M15 5v.01 M15 12v.01 M15 19v.01',
   alert: 'M12 4l9 16H3z M12 10v4 M12 17v.01',
   undo: 'M9 14L4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-3',

@@ -3,17 +3,15 @@ import type { PDFFont, PDFPage } from 'pdf-lib';
 import type { Chapter, Story } from '../db';
 import { contentExtensions } from '../editor/extensions';
 import { layoutPages, measureSheet, refGeometry } from '../editor/layout';
-import { BOOK, HEADING_H, MARGIN_BOTTOM } from './book';
+import { BOOK } from './book';
 import { faceKey, fontBytes, hasExtension, type Family } from './fonts';
 import { chapterLabel, fileSafe } from './text';
 
 /**
- * Exports a whole story in the book format (see book.ts).
+ * Exports a whole story as a PDF in the book format (see book.ts).
  *
  * The PDF is drawn from the browser's own layout of each chapter, the same one
- * the editor shows, so lines and pages match the screen word for word. The
- * .docx uses the same page, margins, fonts and paragraph rules, but Word lays
- * out the text itself, so its page breaks may differ slightly.
+ * the editor shows, so lines and pages match the screen word for word.
  */
 
 function save(blob: Blob, name: string) {
@@ -25,8 +23,6 @@ function save(blob: Blob, name: string) {
 }
 
 const heading = (c: Chapter) => ({ label: chapterLabel(c.order), title: c.title.trim() });
-
-/* ------------------------------------------------------------------ PDF -- */
 
 type Color = [number, number, number];
 type Piece = { page: number; x: number; baseline: number; size: number; width?: number; text: string; face: string; color: Color; underline: boolean; strike: boolean };
@@ -275,166 +271,4 @@ export async function exportPdf(story: Story, chapters: Chapter[]) {
 
   const bytes = await pdf.save();
   save(new Blob([bytes as BlobPart], { type: 'application/pdf' }), `${fileSafe(story.title)}.pdf`);
-}
-
-/* ----------------------------------------------------------------- DOCX -- */
-
-type Run = { text: string; bold?: boolean; italics?: boolean; underline?: boolean; strike?: boolean; br?: boolean };
-
-function runs(node: JSONContent): Run[] {
-  return (node.content ?? []).flatMap((child): Run[] => {
-    if (child.type === 'hardBreak') return [{ text: '', br: true }];
-    if (child.type !== 'text') return runs(child);
-    const marks = new Set((child.marks ?? []).map((m) => m.type));
-    return [{
-      text: child.text ?? '',
-      bold: marks.has('bold'),
-      italics: marks.has('italic'),
-      underline: marks.has('underline'),
-      strike: marks.has('strike'),
-    }];
-  });
-}
-
-type Block =
-  | { kind: 'p'; runs: Run[]; quote?: boolean; bullet?: string; heading?: number }
-  | { kind: 'scene' }
-  | { kind: 'pagebreak' };
-
-function blocks(node: JSONContent, ctx: { quote?: boolean; bullet?: string } = {}): Block[] {
-  return (node.content ?? []).flatMap((child): Block[] => {
-    switch (child.type) {
-      case 'paragraph':
-        return [{ kind: 'p', runs: runs(child), quote: ctx.quote, bullet: ctx.bullet }];
-      case 'heading':
-        return [{ kind: 'p', runs: runs(child), heading: child.attrs?.level ?? 2 }];
-      case 'horizontalRule':
-        return [{ kind: 'scene' }];
-      case 'pageBreak':
-        return [{ kind: 'pagebreak' }];
-      case 'blockquote':
-        return blocks(child, { ...ctx, quote: true });
-      case 'bulletList':
-        return (child.content ?? []).flatMap((li) => blocks(li, { ...ctx, bullet: '•' }));
-      case 'orderedList':
-        return (child.content ?? []).flatMap((li, i) => blocks(li, { ...ctx, bullet: `${(child.attrs?.start ?? 1) + i}.` }));
-      default:
-        return blocks(child, ctx);
-    }
-  });
-}
-
-/** Points to twentieths of a point (twips), Word's unit for layout. */
-const tw = (pt: number) => Math.round(pt * 20);
-
-export async function exportDocx(story: Story, chapters: Chapter[]) {
-  const d = await import('docx');
-  const [text, textItalic, textBold, textBoldItalic, display, displayItalic, displayMedium, sans] = await Promise.all(
-    ['text-400-normal', 'text-400-italic', 'text-700-normal', 'text-700-italic', 'display-400-normal', 'display-400-italic', 'display-500-normal', 'sans-400-normal'].map((k) => fontBytes(k)),
-  );
-  type FontData = import('docx').IPropertiesOptions['fonts'] extends readonly (infer F)[] | undefined ? F : never;
-  const buf = (b: Uint8Array) => b as unknown as FontData['data'];
-  const fonts: FontData[] = [
-    { name: 'Literata', data: buf(text), italic: buf(textItalic), bold: buf(textBold), boldItalic: buf(textBoldItalic) },
-    { name: 'Newsreader', data: buf(display), italic: buf(displayItalic), bold: buf(displayMedium) },
-    { name: 'Instrument Sans', data: buf(sans) },
-  ];
-
-  const line = { line: tw(BOOK.lineHeight), lineRule: d.LineRuleType.EXACT, before: 0, after: 0 };
-  const toRuns = (rs: Run[]) =>
-    rs.map((r) =>
-      r.br
-        ? new d.TextRun({ break: 1 })
-        : new d.TextRun({ text: r.text, bold: r.bold, italics: r.italics, strike: r.strike, underline: r.underline ? {} : undefined }),
-    );
-
-  const sinkTop = HEADING_H * 0.36;
-  const labelLine = 12 + 8;
-  const titleLine = 22 * 1.2;
-
-  const sections = chapters.map((chapter, ci) => {
-    const { label, title } = heading(chapter);
-    const children = [
-      new d.Paragraph({
-        alignment: d.AlignmentType.CENTER,
-        spacing: { before: tw(sinkTop), after: tw(8), line: tw(12), lineRule: d.LineRuleType.EXACT },
-        children: [new d.TextRun({ text: label.toUpperCase(), font: 'Instrument Sans', size: 15, characterSpacing: tw(7.5 * 0.22), color: '8A8374' })],
-      }),
-      new d.Paragraph({
-        alignment: d.AlignmentType.CENTER,
-        spacing: { after: tw(HEADING_H - sinkTop - labelLine - titleLine), line: tw(titleLine), lineRule: d.LineRuleType.EXACT },
-        children: title ? [new d.TextRun({ text: title, font: 'Newsreader', italics: true, size: 44 })] : [],
-      }),
-    ];
-    let first = true;
-    for (const b of blocks(chapter.content)) {
-      if (b.kind === 'pagebreak') {
-        children.push(new d.Paragraph({ spacing: line, children: [new d.PageBreak()] }));
-        first = true;
-      } else if (b.kind === 'scene') {
-        children.push(new d.Paragraph({ alignment: d.AlignmentType.CENTER, spacing: { ...line, before: tw(8), after: tw(8) }, children: [new d.TextRun({ text: '*   *   *', color: '6B6559' })] }));
-        first = true;
-      } else if (b.heading) {
-        children.push(
-          new d.Paragraph({
-            keepNext: true,
-            spacing: { ...line, before: tw(16), after: tw(8) },
-            children: b.runs.map((r) => new d.TextRun({ text: r.text, font: 'Newsreader', bold: true, size: b.heading === 2 ? 28 : 24 })),
-          }),
-        );
-        first = true;
-      } else {
-        children.push(
-          new d.Paragraph({
-            alignment: b.bullet ? d.AlignmentType.LEFT : d.AlignmentType.JUSTIFIED,
-            children: b.bullet ? [new d.TextRun(`${b.bullet}\t`), ...toRuns(b.runs)] : toRuns(b.runs),
-            indent: b.quote ? { left: tw(14) } : b.bullet ? { left: tw(20), hanging: tw(14) } : first ? undefined : { firstLine: tw(BOOK.indent) },
-            border: b.quote ? { left: { style: d.BorderStyle.SINGLE, size: 12, color: 'C3B8A2', space: 6 } } : undefined,
-            spacing: line,
-            widowControl: true,
-          }),
-        );
-        first = false;
-      }
-    }
-    return {
-      properties: {
-        page: {
-          size: { width: tw(BOOK.pageW), height: tw(BOOK.pageH) },
-          margin: { top: tw(BOOK.marginTop), bottom: tw(MARGIN_BOTTOM), left: tw(BOOK.marginX), right: tw(BOOK.marginX), footer: tw(BOOK.folioBottom - 6), header: 0 },
-          pageNumbers: ci === 0 ? { start: 1 } : undefined,
-        },
-      },
-      footers: {
-        default: new d.Footer({
-          children: [new d.Paragraph({ alignment: d.AlignmentType.CENTER, children: [new d.TextRun({ children: [d.PageNumber.CURRENT], font: 'Newsreader', size: 17, color: '8A8374' })] })],
-        }),
-      },
-      children,
-    };
-  });
-
-  const doc = new d.Document({
-    creator: 'Trama',
-    title: story.title,
-    fonts,
-    styles: { default: { document: { run: { font: 'Literata', size: BOOK.fontSize * 2, color: '24221E' }, paragraph: { spacing: line } } } },
-    sections: [titleSection(d, story), ...sections],
-  });
-  save(await d.Packer.toBlob(doc), `${fileSafe(story.title)}.docx`);
-}
-
-function titleSection(d: typeof import('docx'), story: Story) {
-  return {
-    properties: {
-      page: {
-        size: { width: tw(BOOK.pageW), height: tw(BOOK.pageH) },
-        margin: { top: tw(BOOK.marginTop), bottom: tw(MARGIN_BOTTOM), left: tw(BOOK.marginX), right: tw(BOOK.marginX) },
-      },
-    },
-    children: [
-      new d.Paragraph({ alignment: d.AlignmentType.CENTER, spacing: { before: tw(BOOK.pageH * 0.4 - BOOK.marginTop - 24), after: tw(10) }, children: [new d.TextRun({ text: story.title, font: 'Newsreader', size: 48 })] }),
-      ...(story.genre ? [new d.Paragraph({ alignment: d.AlignmentType.CENTER, children: [new d.TextRun({ text: story.genre, italics: true, size: 20, color: '6B6559' })] })] : []),
-    ],
-  };
 }

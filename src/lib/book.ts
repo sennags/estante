@@ -1,6 +1,6 @@
 /**
- * The book format, in PDF points (1/72 in). The editor sheet, the PDF and the
- * .docx all derive their geometry from these numbers, so a page on screen is
+ * The book format, in PDF points (1/72 in). The editor sheet and the PDF both
+ * derive their geometry from these numbers, so a page on screen is
  * the same page in the exported file.
  */
 

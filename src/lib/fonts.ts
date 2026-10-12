@@ -1,6 +1,6 @@
 /**
- * Static font files for the exports. The screen uses the variable fonts; the
- * PDF and the .docx need plain TrueType, so the WOFF files from Fontsource are
+ * Static font files for the PDF export. The screen uses the variable fonts; the
+ * PDF needs plain TrueType, so the WOFF files from Fontsource are
  * unpacked on the fly. Only fetched when the author exports.
  */
 import textRegular from '@fontsource/literata/files/literata-latin-400-normal.woff?url';

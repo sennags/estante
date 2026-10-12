@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { addChapter, db, deleteChapter, getChapters, getScenes, moveChapter, STATUS_LABEL, type Chapter, type Entry, type Scene, type Story, type Thread } from '../db';
 import { Icon, type IconName } from '../components/Icon';
 import { StoryDialog } from '../components/StoryDialog';
-import { exportDocx, exportPdf } from '../lib/export';
+import { exportPdf } from '../lib/export';
 import { refreshPageCounts } from '../editor/pageCount';
 import { chapterName } from '../lib/text';
 import './StoryLayout.css';
@@ -220,16 +220,13 @@ function Area({ icon, label, to, count, countLabel }: AreaProps) {
 }
 
 function ExportMenu({ story, beforeExport }: { story: Story; beforeExport: () => Promise<void> | undefined }) {
-  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  async function run(kind: 'docx' | 'pdf') {
-    setOpen(false);
+  async function run() {
     setBusy(true);
     try {
       await beforeExport();
-      const all = await getChapters(story.id);
-      await (kind === 'docx' ? exportDocx(story, all) : exportPdf(story, all));
+      await exportPdf(story, await getChapters(story.id));
     } catch (err) {
       console.error(err);
       alert('Não foi possível exportar. Tente de novo.');
@@ -240,23 +237,10 @@ function ExportMenu({ story, beforeExport }: { story: Story; beforeExport: () =>
 
   return (
     <div className="sidebar-export">
-      <button className="btn btn-outline" aria-expanded={open} disabled={busy} onClick={() => setOpen((o) => !o)}>
+      <button className="btn btn-outline" disabled={busy} onClick={run}>
         <Icon name="download" size={16} />
-        {busy ? 'Exportando…' : 'Exportar história'}
-        <span className="sidebar-export-chevron"><Icon name={open ? 'chevronUp' : 'chevronDown'} size={16} /></span>
+        {busy ? 'Exportando…' : 'Exportar em PDF'}
       </button>
-      {open && (
-        <div className="sidebar-export-options">
-          <button onClick={() => run('docx')}>
-            <Icon name="file" size={16} />
-            Word (.docx)
-          </button>
-          <button onClick={() => run('pdf')}>
-            <Icon name="file" size={16} />
-            PDF
-          </button>
-        </div>
-      )}
     </div>
   );
 }

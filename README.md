@@ -2,7 +2,7 @@
 
 Um lugar para escrever e terminar suas histórias: planejamento, personagens e o texto do livro, tudo junto. Funciona no computador e no celular.
 
-**Use em [lirismo.pages.dev](https://lirismo.pages.dev/)**: é só abrir no navegador, sem instalar nada.
+**Use em [lirismo.com.br](https://lirismo.com.br)**: é só abrir no navegador, sem instalar nada.
 
 ## O que dá para fazer
 

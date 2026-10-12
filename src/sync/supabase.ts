@@ -27,4 +27,7 @@ export const GOOGLE_LOGIN = !!supabase && import.meta.env.VITE_GOOGLE_LOGIN === 
 export const EMAIL_LOGIN = !!supabase && import.meta.env.VITE_EMAIL_LOGIN === 'true';
 
 /** Where links from e-mails and Google send the author back to. */
-export const appUrl = () => window.location.origin + window.location.pathname;
+export const appUrl = (link?: EmailLink) => window.location.origin + window.location.pathname + (link ? `?link=${link}` : '');
+
+/** Which e-mail a link came from, so a link opened in another browser can be explained. */
+export type EmailLink = 'confirmar' | 'senha';

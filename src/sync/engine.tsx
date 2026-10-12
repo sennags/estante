@@ -416,10 +416,27 @@ async function reportAuthError() {
   const hash = url.hash.startsWith('#error') ? new URLSearchParams(url.hash.slice(1)) : null;
   const params = hash ?? url.searchParams;
   const code = params.get('error_code') ?? params.get('error');
-  if (!code) return;
-  for (const name of ['error', 'error_code', 'error_description']) url.searchParams.delete(name);
+  const link = url.searchParams.get('link');
+  // Supabase only exchanges ?code= in the browser that asked for it; one still
+  // here means the e-mail was opened elsewhere (often the phone).
+  const elsewhere = url.searchParams.has('code');
+  if (!code && !link && !elsewhere) return;
+  for (const name of ['error', 'error_code', 'error_description', 'link', 'code']) url.searchParams.delete(name);
   if (hash) url.hash = '';
   window.history.replaceState(window.history.state, '', url.toString());
+
+  if (!code) {
+    if (!elsewhere) return;
+    if (link === 'confirmar') {
+      return tell({ title: 'Conta confirmada', message: 'Seu e-mail está confirmado. Agora é só entrar com seu e-mail e senha.' });
+    }
+    return tell({
+      title: 'Abra o link no mesmo navegador',
+      message: link === 'senha'
+        ? 'Por segurança, o link para criar uma senha nova só funciona no navegador em que você o pediu. Abra-o lá, ou peça um novo aqui.'
+        : 'Este link só funciona no navegador em que foi pedido. Se era a confirmação da conta, ela já está confirmada: entre com seu e-mail e senha.',
+    });
+  }
 
   if (code === 'access_denied') return; // cancelled on Google's screen
   await tell({

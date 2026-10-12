@@ -2,6 +2,15 @@
 @import '@fontsource-variable/newsreader/opsz-italic.css';
 @import '@fontsource-variable/literata/opsz.css';
 @import '@fontsource-variable/literata/opsz-italic.css';
+/* Static faces for the book sheet: the same files the PDF and .docx embed. */
+@import '@fontsource/literata/400.css';
+@import '@fontsource/literata/400-italic.css';
+@import '@fontsource/literata/700.css';
+@import '@fontsource/literata/700-italic.css';
+@import '@fontsource/newsreader/400.css';
+@import '@fontsource/newsreader/400-italic.css';
+@import '@fontsource/newsreader/500.css';
+@import '@fontsource/newsreader/500-italic.css';
 @import '@fontsource/instrument-sans/400.css';
 @import '@fontsource/instrument-sans/500.css';
 @import '@fontsource/instrument-sans/600.css';
@@ -33,6 +42,8 @@
   --serif-display: 'Newsreader Variable', Georgia, serif;
   --serif-text: 'Literata Variable', Georgia, serif;
   --sans: 'Instrument Sans', system-ui, sans-serif;
+  --book-text: 'Literata', Georgia, serif;
+  --book-display: 'Newsreader', Georgia, serif;
 
   --radius: 10px;
   --shadow-pop: 0 16px 32px -16px rgba(20, 20, 15, 0.55);

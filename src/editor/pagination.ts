@@ -1,38 +1,28 @@
 import { Extension, Node } from '@tiptap/react';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
+import { applyGeometry, layoutCopy, sheetGeometry, type Break, type Geometry } from './layout';
 
 /**
  * Paper pagination for a single ProseMirror document.
  *
- * The editor lives inside one tall `.sheet`. After each render we measure the
- * top-level blocks and, wherever the next block would overflow the page, insert
- * a widget that fills the rest of the page, draws the page number and the gap
- * to the next sheet. Blocks are never split, so a paragraph that doesn't fit
- * moves whole to the next page (like "keep lines together" in Word).
+ * The editor lives inside one tall `.sheet`. After each render a copy of the
+ * text is laid out off screen (see layout.ts) and, wherever a page ends, a
+ * widget fills the rest of the page, draws the page number and the gap to the
+ * next sheet. Breaks inside a paragraph fall exactly between two lines, so the
+ * text on screen keeps the same lines as the exported book.
  */
 
 export const PAGE_GAP = 28;
-/** A4 proportions. */
-const PAGE_RATIO = 1.414;
-
-export type Geometry = { padX: number; padY: number; avail: number };
-
-export function geometry(width: number): Geometry {
-  const padX = Math.round(Math.min(112, Math.max(22, width * 0.11)));
-  const padY = Math.round(Math.min(112, Math.max(40, width * 0.12)));
-  const pageH = Math.round(width * PAGE_RATIO);
-  return { padX, padY, avail: pageH - padY * 2 };
-}
-
-type Break = { pos: number; fill: number };
 
 export type PageLayout = {
   breaks: Break[];
   endFill: number;
   pages: number;
   firstPage: number;
-  padY: number;
+  padTop: number;
+  padBottom: number;
+  compact: boolean;
 };
 
 type PaginationOptions = {
@@ -53,10 +43,15 @@ export const PageBreak = Node.create({
   renderHTML: () => ['div', { 'data-page-break': '', class: 'page-break' }],
 });
 
+function part(cls: string, height: number) {
+  const el = document.createElement('span');
+  el.className = cls;
+  el.style.height = `${height}px`;
+  return el;
+}
+
 function pageFoot(height: number, pageNo: number) {
-  const foot = document.createElement('div');
-  foot.className = 'page-foot';
-  foot.style.height = `${height}px`;
+  const foot = part('page-foot', height);
   const n = document.createElement('span');
   n.className = 'page-number';
   n.textContent = String(pageNo);
@@ -64,79 +59,60 @@ function pageFoot(height: number, pageNo: number) {
   return foot;
 }
 
-function gapWidget(fill: number, padY: number, pageNo: number) {
-  const el = document.createElement('div');
-  el.className = 'page-gap';
+function gapWidget(b: Break, l: PageLayout, pageNo: number) {
+  const el = document.createElement(b.inline ? 'span' : 'div');
+  el.className = b.inline ? 'page-gap is-inline' : 'page-gap';
   el.contentEditable = 'false';
-  const sep = document.createElement('div');
-  sep.className = 'page-sep';
-  sep.style.height = `${PAGE_GAP}px`;
-  const head = document.createElement('div');
-  head.style.height = `${padY}px`;
-  el.append(pageFoot(fill + padY, pageNo), sep, head);
+  el.append(pageFoot(b.fill + l.padBottom, pageNo), part('page-sep', PAGE_GAP), part('page-head', l.padTop));
   return el;
 }
 
-function endWidget(fill: number, padY: number, pageNo: number) {
+function endWidget(l: PageLayout, pageNo: number) {
   const el = document.createElement('div');
   el.className = 'page-end';
   el.contentEditable = 'false';
-  el.append(pageFoot(fill + padY, pageNo));
+  el.append(pageFoot(l.endFill + l.padBottom, pageNo));
   return el;
 }
 
-function buildDecorations(doc: import('@tiptap/pm/model').Node, layout: PageLayout) {
-  const { breaks, padY, firstPage } = layout;
-  const decos = breaks.map((b, i) =>
-    Decoration.widget(b.pos, () => gapWidget(b.fill, padY, firstPage + i), {
+function buildDecorations(doc: import('@tiptap/pm/model').Node, l: PageLayout) {
+  const sizes = `${l.padTop}-${l.padBottom}`;
+  const decos = l.breaks.map((b, i) =>
+    Decoration.widget(b.pos, () => gapWidget(b, l, l.firstPage + i), {
       side: -1,
-      key: `gap-${i}-${b.fill}-${padY}-${firstPage}`,
+      key: `gap-${i}-${b.inline}-${b.fill}-${sizes}-${l.firstPage}`,
       ignoreSelection: true,
     }),
   );
   decos.push(
-    Decoration.widget(doc.content.size, () => endWidget(layout.endFill, padY, firstPage + breaks.length), {
+    Decoration.widget(doc.content.size, () => endWidget(l, l.firstPage + l.breaks.length), {
       side: 1,
-      key: `end-${layout.endFill}-${padY}-${firstPage + breaks.length}`,
+      key: `end-${l.endFill}-${sizes}-${l.firstPage + l.breaks.length}`,
       ignoreSelection: true,
     }),
   );
   return DecorationSet.create(doc, decos);
 }
 
-function outerHeight(el: HTMLElement) {
-  const cs = getComputedStyle(el);
-  return { h: el.offsetHeight + parseFloat(cs.marginTop), mb: parseFloat(cs.marginBottom) };
-}
+const round = (b: Break): Break => ({ ...b, fill: Math.round(b.fill * 100) / 100 });
 
 function measure(view: EditorView, firstPage: number): PageLayout | null {
   const sheet = view.dom.closest('.sheet') as HTMLElement | null;
-  if (!sheet || !sheet.clientWidth) return null;
-  const { padX, padY, avail } = geometry(sheet.clientWidth);
-  sheet.style.setProperty('--pad-x', `${padX}px`);
-  sheet.style.setProperty('--pad-y', `${padY}px`);
-
-  // Whatever sits above the editor on the first page (chapter heading).
-  let y = view.dom.getBoundingClientRect().top - sheet.getBoundingClientRect().top - padY;
-  const breaks: Break[] = [];
-
-  view.state.doc.forEach((node, offset) => {
-    if (node.type.name === 'pageBreak') {
-      breaks.push({ pos: offset + node.nodeSize, fill: Math.max(0, Math.round(avail - y)) });
-      y = 0;
-      return;
-    }
-    const dom = view.nodeDOM(offset);
-    if (!(dom instanceof HTMLElement)) return;
-    const { h, mb } = outerHeight(dom);
-    if (y > 0 && y + h > avail) {
-      breaks.push({ pos: offset, fill: Math.max(0, Math.round(avail - y)) });
-      y = 0;
-    }
-    y += h + mb;
-  });
-
-  return { breaks, endFill: Math.max(0, Math.round(avail - y)), pages: breaks.length + 1, firstPage, padY };
+  const width = sheet?.getBoundingClientRect().width;
+  if (!sheet || !width) return null;
+  const g: Geometry = sheetGeometry(width);
+  applyGeometry(sheet, g);
+  const layout = layoutCopy(view.dom, view.state.doc, g);
+  if (!layout) return null;
+  return {
+    breaks: layout.breaks.map(round),
+    endFill: Math.round(layout.endFill * 100) / 100,
+    pages: layout.pages,
+    firstPage,
+    padTop: g.padTop,
+    padBottom: g.padBottom,
+    compact: g.compact,
+  };
 }
 
 const same = (a: PageLayout | null, b: PageLayout | null) => JSON.stringify(a) === JSON.stringify(b);
@@ -167,9 +143,19 @@ export const Pagination = Extension.create<PaginationOptions>({
         view(view) {
           let frame = 0;
           let destroyed = false;
+          let observed: Element | null = null;
+          const ro = new ResizeObserver(() => schedule());
           const run = () => {
             frame = 0;
             if (destroyed) return;
+            // React mounts the editor into the sheet after the view exists: wait for it.
+            const sheet = view.dom.closest('.sheet');
+            if (!sheet) return schedule();
+            if (sheet !== observed) {
+              ro.disconnect();
+              ro.observe(sheet);
+              observed = sheet;
+            }
             const next = measure(view, options.getFirstPage());
             if (!next) return;
             const current = key.getState(view.state)?.layout ?? null;
@@ -178,12 +164,9 @@ export const Pagination = Extension.create<PaginationOptions>({
             }
             options.onLayout(next);
           };
-          const schedule = () => {
-            if (!frame) frame = requestAnimationFrame(run);
-          };
-          const sheet = view.dom.closest('.sheet');
-          const ro = new ResizeObserver(schedule);
-          if (sheet) ro.observe(sheet);
+          function schedule() {
+            if (!frame && !destroyed) frame = requestAnimationFrame(run);
+          }
           document.fonts?.ready.then(schedule);
           schedule();
           return {

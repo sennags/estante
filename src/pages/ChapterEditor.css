@@ -9,7 +9,7 @@
 
 .editor-top {
   width: 100%;
-  max-width: 900px;
+  max-width: 635px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -46,43 +46,69 @@
   opacity: 1;
 }
 
-/* The sheet: one long piece of paper split into pages by pagination widgets. */
+/*
+ * The sheet: one long piece of paper split into pages by pagination widgets.
+ * Every size is in book points times --u (pixels per point), set by
+ * pagination.ts from the sheet's width, so the page is a scaled 14 × 21 cm
+ * page of the exported book. Phones get `.is-compact`: bigger type, same rules.
+ */
 .sheet {
-  --pad-x: 96px;
-  --pad-y: 104px;
+  --u: 1.6px;
+  --pad-x: calc(51.02 * var(--u));
+  --pad-top: calc(54 * var(--u));
+  --pad-bottom: calc(61.28 * var(--u));
+  --heading-h: calc(144 * var(--u));
   position: relative;
   width: 100%;
-  max-width: 900px;
-  padding: var(--pad-y) var(--pad-x) 0;
+  max-width: 634.96px;
+  padding: var(--pad-top) var(--pad-x) 0;
   background: var(--paper);
   box-shadow: 0 1px 0 #d8d0bf, 0 24px 48px -28px rgba(60, 45, 25, 0.45);
   border-radius: 2px;
-  font-family: var(--serif-text);
-  font-size: 19px;
-  line-height: 1.8;
+  font-family: var(--book-text);
+  font-optical-sizing: none;
+  font-kerning: normal;
+  font-size: calc(11 * var(--u));
+  line-height: calc(16 * var(--u));
   color: var(--text-ink);
+  text-align: justify;
+  hyphens: manual;
+}
+.sheet-measure {
+  position: absolute;
+  top: 0;
+  left: -100000px;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout paint;
 }
 
 .sheet-heading {
+  height: var(--heading-h);
+  padding-top: calc(var(--heading-h) * 0.36);
   text-align: center;
-  padding-bottom: 44px;
 }
 .sheet-eyebrow {
-  margin: 0 0 4px;
+  margin: 0 0 calc(8 * var(--u));
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: calc(7.5 * var(--u));
+  line-height: calc(12 * var(--u));
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-5);
 }
 .sheet-title {
+  display: block;
   width: 100%;
+  margin: 0;
   border: 0;
   background: transparent;
   text-align: center;
-  font-family: var(--serif-display);
-  font-size: 40px;
+  font-family: var(--book-display);
+  font-optical-sizing: none;
+  font-size: calc(22 * var(--u));
   font-style: italic;
+  font-weight: 400;
   line-height: 1.2;
   color: var(--ink);
   outline: none;
@@ -94,44 +120,51 @@
 
 .prose {
   outline: none;
-  min-height: 1.8em;
+  min-height: 1lh;
 }
-.prose > * {
-  margin: 0 0 14px;
+.prose > *,
+.prose li > * {
+  margin: 0;
 }
 .prose p + p {
-  text-indent: 1.6em;
+  text-indent: calc(16.5 * var(--u));
 }
 .prose h2,
 .prose h3 {
-  font-family: var(--serif-display);
+  font-family: var(--book-display);
+  font-optical-sizing: none;
   font-weight: 500;
-  line-height: 1.3;
-  margin: 8px 0 12px;
+  text-align: left;
+  line-height: calc(16 * var(--u));
+  margin: calc(16 * var(--u)) 0 calc(8 * var(--u));
 }
 .prose h2 {
-  font-size: 1.35em;
+  font-size: calc(14 * var(--u));
 }
 .prose h3 {
-  font-size: 1.15em;
+  font-size: calc(12 * var(--u));
+}
+.prose ul,
+.prose ol {
+  padding-left: calc(20 * var(--u));
 }
 .prose blockquote {
   margin-left: 0;
-  padding-left: 1.2em;
+  padding-left: calc(14 * var(--u));
   border-left: 2px solid var(--line-strong);
   font-style: italic;
 }
 .prose hr {
   border: 0;
-  height: 1.8em;
-  margin: 10px 0 24px;
+  height: calc(16 * var(--u));
+  margin: calc(8 * var(--u)) 0;
   text-align: center;
   overflow: visible;
+  line-height: calc(16 * var(--u));
 }
 .prose hr::after {
   content: '⁂';
   color: var(--ink-4);
-  font-size: 1.1em;
 }
 .prose hr.ProseMirror-selectednode::after,
 .prose .page-break.ProseMirror-selectednode + .page-gap {
@@ -157,9 +190,25 @@
 /* Pagination widgets */
 .page-gap,
 .page-end {
+  display: block;
   margin: 0 calc(var(--pad-x) * -1) !important;
   user-select: none;
   text-indent: 0;
+  line-height: 0;
+}
+/* A break between two lines of a paragraph: alone on its own line, full width. */
+.page-gap.is-inline {
+  display: inline-block;
+  vertical-align: top;
+  width: calc(100% + 2 * var(--pad-x));
+}
+.page-gap + * {
+  margin-top: 0 !important;
+}
+.page-foot,
+.page-sep,
+.page-head {
+  display: block;
 }
 .page-foot {
   position: relative;
@@ -168,12 +217,16 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(var(--pad-y) * 0.42);
+  bottom: calc(27 * var(--u));
   text-align: center;
-  font-family: var(--serif-display);
-  font-size: 15px;
+  font-family: var(--book-display);
+  font-size: calc(8.5 * var(--u));
   color: var(--ink-5);
   line-height: 1;
+}
+.sheet.is-compact .page-number {
+  bottom: 18px;
+  font-size: 13px;
 }
 .page-sep {
   background: var(--desk);
@@ -318,16 +371,6 @@
   .editor-top {
     padding: 0 8px;
     margin-bottom: 8px;
-  }
-  .sheet {
-    font-size: 17px;
-    line-height: 1.7;
-  }
-  .sheet-heading {
-    padding-bottom: 28px;
-  }
-  .sheet-title {
-    font-size: 30px;
   }
   .toolbar {
     bottom: 12px;

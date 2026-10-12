@@ -5,6 +5,7 @@ import { addChapter, db, deleteChapter, getChapters, getScenes, moveChapter, STA
 import { Icon, type IconName } from '../components/Icon';
 import { StoryDialog } from '../components/StoryDialog';
 import { exportDocx, exportPdf } from '../lib/export';
+import { refreshPageCounts } from '../editor/pageCount';
 import { chapterName } from '../lib/text';
 import './StoryLayout.css';
 
@@ -41,6 +42,14 @@ export function StoryLayout() {
   }, []);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
+
+  // Once per story: bring stored page counts up to the current book format.
+  const counted = useRef('');
+  useEffect(() => {
+    if (!chapters || counted.current === storyId) return;
+    counted.current = storyId;
+    refreshPageCounts(chapters);
+  }, [chapters, storyId]);
 
   if (story === null || !chapters || !scenes || !threads || !entries) return null;
   if (!story || story.deletedAt) return <Navigate to="/" replace />;

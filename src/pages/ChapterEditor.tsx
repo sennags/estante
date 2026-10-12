@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { db, saveChapterContent, type Chapter } from '../db';
-import { PageBreak, Pagination, type PageLayout } from '../editor/pagination';
+import { Pagination, type PageLayout } from '../editor/pagination';
+import { contentExtensions } from '../editor/extensions';
+import { bookPages } from '../editor/layout';
 import { Icon } from '../components/Icon';
 import { ReferencePanel } from '../components/ReferencePanel';
 import { VersionsDialog } from '../components/VersionsDialog';
@@ -65,9 +66,8 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3] }, codeBlock: false, code: false }),
+      ...contentExtensions(),
       Placeholder.configure({ placeholder: 'Comece a escrever…' }),
-      PageBreak,
       Pagination.configure({
         getFirstPage: () => firstPageRef.current,
         onLayout: (l) => {
@@ -98,7 +98,9 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
     pendingSave.current = 0;
     setSaveState('saving');
     const json = latest.current;
-    await saveChapterContent(chapter, json, countWords(json), layoutRef.current?.pages ?? 1);
+    const pages = editor && !editor.isDestroyed ? bookPages(editor.view.dom, editor.state.doc) : chapter.pageCount;
+    chapter.pageCount = pages;
+    await saveChapterContent(chapter, json, countWords(json), pages);
     setSaveState((s) => (s === 'saving' ? 'saved' : s));
   };
 
@@ -112,13 +114,15 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
     };
   }, []);
 
-  // Keep the stored page count in sync so later chapters number correctly.
+  // Keep the stored page count (in the book format) in sync so later chapters number correctly.
   useEffect(() => {
-    if (layout && layout.pages !== chapter.pageCount) {
-      db.chapters.update(chapter.id, { pageCount: layout.pages });
-      chapter.pageCount = layout.pages;
+    if (!layout || !editor || editor.isDestroyed) return;
+    updateCursorPage(editor);
+    const pages = bookPages(editor.view.dom, editor.state.doc);
+    if (pages !== chapter.pageCount) {
+      chapter.pageCount = pages;
+      db.chapters.update(chapter.id, { pageCount: pages });
     }
-    if (editor) updateCursorPage(editor);
   }, [layout, chapter, editor, updateCursorPage]);
 
   // Renumber pages when an earlier chapter grows or shrinks.

@@ -1,6 +1,6 @@
-# Estante
+# Trama
 
-Aplicação web para escritores organizarem e terminarem suas histórias, reunindo planejamento, referências e escrita no mesmo lugar. Funciona no computador e no celular, e todos os dados ficam salvos no próprio navegador.
+Aplicação web para escritores organizarem e terminarem suas histórias, reunindo planejamento, referências e escrita no mesmo lugar. O nome joga com os dois sentidos da palavra: o enredo de uma história e o entrelaçado de fios de um tecido, como os fios narrativos que o app ajuda a acompanhar. Funciona no computador e no celular, e todos os dados ficam salvos no próprio navegador.
 
 ## O que já funciona (fase 1)
 

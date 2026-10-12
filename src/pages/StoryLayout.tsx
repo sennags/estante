@@ -108,7 +108,7 @@ function Sidebar({ story, chapters, open, onClose, onEdit }: SidebarProps) {
       <div className="sidebar-top">
         <Link to="/" className="sidebar-back">
           <Icon name="back" size={16} />
-          Estante
+          Biblioteca
         </Link>
         <button className="icon-btn sidebar-close" aria-label="Fechar menu" onClick={onClose}>
           <Icon name="close" />

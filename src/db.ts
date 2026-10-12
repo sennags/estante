@@ -65,7 +65,7 @@ export interface Entry {
   updatedAt: number;
 }
 
-export const db = new Dexie('estante') as Dexie & {
+export const db = new Dexie('trama') as Dexie & {
   stories: EntityTable<Story, 'id'>;
   chapters: EntityTable<Chapter, 'id'>;
   versions: EntityTable<ChapterVersion, 'id'>;

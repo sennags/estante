@@ -122,7 +122,7 @@ export async function exportDocx(story: Story, chapters: Chapter[]) {
   });
 
   const doc = new d.Document({
-    creator: 'Estante',
+    creator: 'Trama',
     title: story.title,
     styles: { default: { document: { run: { font, size: 24 } } } },
     sections,
@@ -184,7 +184,7 @@ export async function exportPdf(story: Story, chapters: Chapter[]) {
 
   const blob = await pdfMake
     .createPdf({
-      info: { title: story.title, creator: 'Estante' },
+      info: { title: story.title, creator: 'Trama' },
       pageSize: 'A4',
       pageMargins: [72, 72, 72, 72],
       content,

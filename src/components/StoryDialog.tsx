@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { COVER_COLORS, createStory, db, deleteStory, STATUS_LABEL, type Story, type StoryStatus } from '../db';
 import { Cover } from './Cover';
@@ -11,17 +11,61 @@ type Props = {
 };
 
 const MAX_COVER_BYTES = 5 * 1024 * 1024;
+const COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+/**
+ * Unfinished "new story" form. Closing the dialog keeps it, so clicking
+ * outside by accident loses nothing. Text survives a reload (localStorage);
+ * the cover image only lives for this tab.
+ */
+type Draft = { title: string; synopsis: string; genre: string; coverColor: string };
+const DRAFT_KEY = 'trama:rascunho-historia';
+let draftImage: Blob | undefined;
+
+function loadDraft(): Draft {
+  const empty = { title: '', synopsis: '', genre: '', coverColor: COVER_COLORS[0] };
+  try {
+    return { ...empty, ...JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}') };
+  } catch {
+    return empty;
+  }
+}
+
+function storeDraft(draft: Draft, image?: Blob) {
+  draftImage = image;
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // Storage blocked: the draft still lasts while the tab is open.
+  }
+}
+
+function clearDraft() {
+  draftImage = undefined;
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Nothing stored.
+  }
+}
 
 /** Creates a new story, or edits one when `story` is given. */
 export function StoryDialog({ story, onClose }: Props) {
   const navigate = useNavigate();
-  const [title, setTitle] = useState(story?.title ?? '');
-  const [synopsis, setSynopsis] = useState(story?.synopsis ?? '');
-  const [genre, setGenre] = useState(story?.genre ?? '');
+  const [initial] = useState(() => story ?? { ...loadDraft(), coverImage: draftImage });
+  const [title, setTitle] = useState(initial.title);
+  const [synopsis, setSynopsis] = useState(initial.synopsis);
+  const [genre, setGenre] = useState(initial.genre);
   const [status, setStatus] = useState<StoryStatus>(story?.status ?? 'planejamento');
-  const [coverColor, setCoverColor] = useState(story?.coverColor ?? COVER_COLORS[0]);
-  const [coverImage, setCoverImage] = useState<Blob | undefined>(story?.coverImage);
+  const [coverColor, setCoverColor] = useState(initial.coverColor);
+  const [coverImage, setCoverImage] = useState<Blob | undefined>(initial.coverImage);
   const [error, setError] = useState('');
+
+  const hasDraft = !story && !!(title || synopsis || genre || coverImage);
+
+  useEffect(() => {
+    if (!story) storeDraft({ title, synopsis, genre, coverColor }, coverImage);
+  }, [story, title, synopsis, genre, coverColor, coverImage]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -32,8 +76,18 @@ export function StoryDialog({ story, onClose }: Props) {
       onClose();
     } else {
       const created = await createStory(data);
+      clearDraft();
       navigate(`/historia/${created.id}`);
     }
+  }
+
+  function discardDraft() {
+    setTitle('');
+    setSynopsis('');
+    setGenre('');
+    setCoverColor(COVER_COLORS[0]);
+    setCoverImage(undefined);
+    setError('');
   }
 
   async function remove() {
@@ -45,7 +99,7 @@ export function StoryDialog({ story, onClose }: Props) {
 
   function pickImage(file?: File) {
     if (!file) return;
-    if (!file.type.startsWith('image/')) return setError('Escolha um arquivo de imagem.');
+    if (!COVER_TYPES.includes(file.type)) return setError('Use uma imagem JPG, PNG ou WebP.');
     if (file.size > MAX_COVER_BYTES) return setError('A imagem precisa ter até 5 MB.');
     setError('');
     setCoverImage(file);
@@ -59,7 +113,7 @@ export function StoryDialog({ story, onClose }: Props) {
           <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <label className="field">
               <span>Título</span>
-              <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+              <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
             </label>
             <label className="field">
               <span>Gênero</span>
@@ -75,33 +129,33 @@ export function StoryDialog({ story, onClose }: Props) {
 
         <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
           <span>Capa</span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <div className="cover-picker">
             {COVER_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
+                className="swatch"
                 aria-label={`Cor ${c}`}
                 aria-pressed={!coverImage && c === coverColor}
                 onClick={() => {
                   setCoverColor(c);
                   setCoverImage(undefined);
                 }}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  background: c,
-                  cursor: 'pointer',
-                  border: !coverImage && c === coverColor ? '3px solid var(--ink)' : '3px solid transparent',
-                  boxShadow: 'inset 0 0 0 2px var(--ground)',
-                }}
+                style={{ background: c }}
               />
             ))}
-            <label className="btn btn-outline" style={{ minHeight: 40 }}>
+            <label className="btn btn-outline" style={{ minHeight: 40 }} aria-describedby="cover-hint">
               <Icon name="image" size={16} />
-              Usar imagem
-              <input type="file" accept="image/*" className="sr-only" onChange={(e) => pickImage(e.target.files?.[0])} />
+              {coverImage ? 'Trocar imagem' : 'Usar imagem'}
+              <input type="file" accept={COVER_TYPES.join(',')} className="sr-only" onChange={(e) => pickImage(e.target.files?.[0])} />
             </label>
+            <span id="cover-hint" className="cover-hint">
+              JPG, PNG ou WebP
+              <br />
+              até 5 MB
+              <br />
+              ideal 600 × 900 px
+            </span>
           </div>
         </fieldset>
 
@@ -125,7 +179,12 @@ export function StoryDialog({ story, onClose }: Props) {
               Apagar história
             </button>
           )}
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          {hasDraft && (
+            <button type="button" className="btn btn-ghost" style={{ marginRight: 'auto' }} onClick={discardDraft}>
+              Limpar campos
+            </button>
+          )}
+          <button type="button" className="btn btn-ghost" onClick={onClose}>{story ? 'Cancelar' : 'Fechar'}</button>
           <button type="submit" className="btn btn-primary">{story ? 'Salvar' : 'Criar e começar'}</button>
         </div>
       </form>

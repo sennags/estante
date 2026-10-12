@@ -36,7 +36,7 @@ export function Library() {
       <header className="library-header">
         <div className="brand">
           <span style={{ color: 'var(--accent)' }}><Icon name="logo" size={28} stroke={1.6} /></span>
-          <span className="brand-name">Estante</span>
+          <span className="brand-name">Trama</span>
         </div>
         <div className="library-actions">
           <label className="search">

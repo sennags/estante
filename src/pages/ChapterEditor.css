@@ -126,10 +126,12 @@
 .prose li > * {
   margin: 0;
 }
-.prose p + p {
+/* Every paragraph opens with an indent, the first of a chapter included. */
+.prose p {
   text-indent: calc(16.5 * var(--u));
 }
-/* A paragraph set apart from the running text has no first-line indent. */
+/* List items and paragraphs set apart from the running text have no first-line indent. */
+.prose li p,
 .prose p[style*='text-align: center'],
 .prose p[style*='text-align: right'] {
   text-indent: 0;
@@ -179,6 +181,8 @@
   content: attr(data-placeholder);
   float: left;
   height: 0;
+  /* A float ignores text-indent; line it up with the caret. */
+  margin-left: calc(16.5 * var(--u));
   pointer-events: none;
   color: #b5ad9c;
   font-style: italic;

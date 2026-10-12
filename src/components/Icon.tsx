@@ -27,6 +27,10 @@ const PATHS = {
   undo: 'M9 14L4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-3',
   chevronLeft: 'M15 6l-6 6 6 6',
   chevronRight: 'M9 6l6 6-6 6',
+  alignJustify: 'M4 6h16 M4 10h16 M4 14h16 M4 18h16',
+  alignLeft: 'M4 6h16 M4 10h10 M4 14h16 M4 18h10',
+  alignCenter: 'M4 6h16 M7 10h10 M4 14h16 M7 18h10',
+  alignRight: 'M4 6h16 M10 10h10 M4 14h16 M10 18h10',
 } as const;
 
 export type IconName = keyof typeof PATHS;

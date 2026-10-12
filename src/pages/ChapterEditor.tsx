@@ -4,7 +4,7 @@ import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent
 import Placeholder from '@tiptap/extension-placeholder';
 import { db, saveChapterContent, type Chapter } from '../db';
 import { Pagination, type PageLayout } from '../editor/pagination';
-import { contentExtensions } from '../editor/extensions';
+import { contentExtensions, type Alignment } from '../editor/extensions';
 import { Dashes } from '../editor/dashes';
 import { bookPages } from '../editor/layout';
 import { Icon } from '../components/Icon';
@@ -92,7 +92,11 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
 
   const marks = useEditorState({
     editor,
-    selector: ({ editor: e }) => ({ bold: !!e?.isActive('bold'), italic: !!e?.isActive('italic') }),
+    selector: ({ editor: e }) => ({
+      bold: !!e?.isActive('bold'),
+      italic: !!e?.isActive('italic'),
+      align: (ALIGN_OPTIONS.find((o) => e?.isActive({ textAlign: o.value }))?.value ?? 'justify') as Alignment,
+    }),
   });
 
   flushRef.current = async () => {
@@ -230,6 +234,7 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
             <ToolButton label="Itálico" active={marks?.italic} onClick={() => editor?.chain().focus().toggleItalic().run()}>
               <i style={{ fontFamily: 'var(--serif-display)', fontSize: 18 }}>I</i>
             </ToolButton>
+            {editor && <AlignMenu editor={editor} current={marks?.align ?? 'justify'} />}
             <span className="toolbar-sep" />
             <span className="toolbar-count">{formatNumber(words)} palavras</span>
             <span className="toolbar-sep" />
@@ -254,6 +259,72 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
       {refsOpen && !focus && <ReferencePanel storyId={story.id} chapterId={chapter.id} onClose={() => setRefsOpen(false)} />}
       {versionsOpen && editor && <VersionsDialog chapterId={chapter.id} editor={editor} onClose={() => setVersionsOpen(false)} />}
     </>
+  );
+}
+
+const ALIGN_OPTIONS: { value: Alignment; label: string; icon: 'alignJustify' | 'alignLeft' | 'alignCenter' | 'alignRight' }[] = [
+  { value: 'justify', label: 'Justificado', icon: 'alignJustify' },
+  { value: 'left', label: 'À esquerda', icon: 'alignLeft' },
+  { value: 'center', label: 'Centralizado', icon: 'alignCenter' },
+  { value: 'right', label: 'À direita', icon: 'alignRight' },
+];
+
+/** Alignment of the paragraphs under the cursor or selection. */
+function AlignMenu({ editor, current }: { editor: Editor; current: Alignment }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = ALIGN_OPTIONS.find((o) => o.value === current)!;
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+
+  function choose(value: Alignment) {
+    // Justified is the book's default, so it is stored as no alignment at all.
+    const chain = editor.chain().focus();
+    (value === 'justify' ? chain.unsetTextAlign() : chain.setTextAlign(value)).run();
+    setOpen(false);
+  }
+
+  return (
+    <div className="toolbar-align" ref={ref}>
+      <button
+        className="toolbar-btn"
+        aria-label={`Alinhamento: ${active.label}`}
+        title="Alinhamento"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Icon name={active.icon} />
+      </button>
+      {open && (
+        <div className="toolbar-menu" role="menu" aria-label="Alinhamento">
+          {ALIGN_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              role="menuitemradio"
+              aria-checked={o.value === current}
+              className={`toolbar-btn ${o.value === current ? 'is-active' : ''}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => choose(o.value)}
+            >
+              <Icon name={o.icon} />
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

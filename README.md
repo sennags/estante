@@ -9,7 +9,7 @@ Aplicação web para escritores organizarem e terminarem suas histórias, reunin
   - O texto passa sozinho para a página seguinte quando a atual enche. A numeração de páginas segue pelo livro inteiro, e cada capítulo começa numa página nova.
   - O botão **+ Nova página em branco** cria uma página vazia no fim do capítulo.
   - Salva sozinho e mostra a contagem de palavras.
-  - Tem negrito e itálico.
+  - Tem negrito, itálico e alinhamento do parágrafo. O texto é justificado, mas um parágrafo pode ficar à esquerda, centralizado ou à direita (uma epígrafe, a assinatura de uma carta). O PDF segue o mesmo alinhamento.
   - O **modo foco** esconde tudo menos a folha. Para sair, aperte Esc. No celular ele não aparece, porque a tela já mostra só a folha.
   - A barra de ferramentas pode ser recolhida.
   - **Versões**: uma cópia do capítulo é guardada sozinha a cada 10 minutos de escrita, e você também pode guardar uma na hora. Qualquer versão pode ser restaurada.

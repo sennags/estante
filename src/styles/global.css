@@ -264,7 +264,11 @@ a {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+.cover-picker .btn {
+  min-height: 40px;
+  padding: 0 12px;
 }
 .swatch {
   width: 34px;

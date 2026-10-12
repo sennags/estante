@@ -74,6 +74,8 @@ export function StoryDialog({ story, onClose }: Props) {
   const [form, setForm] = useState<Draft>(() => restored ?? saved);
   const [error, setError] = useState('');
   const [confirmTrash, setConfirmTrash] = useState(false);
+  // Only true while the form still holds a draft recovered on opening.
+  const [recovered, setRecovered] = useState(() => !!restored && differs(restored, saved));
 
   const changed = differs(form, saved);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setForm((f) => ({ ...f, [key]: value }));
@@ -107,6 +109,7 @@ export function StoryDialog({ story, onClose }: Props) {
 
   function discard() {
     clearDraft(story);
+    setRecovered(false);
     setForm(saved);
     setError('');
   }
@@ -147,7 +150,7 @@ export function StoryDialog({ story, onClose }: Props) {
   return (
     <Modal title={story ? 'Detalhes da história' : 'Nova história'} onClose={onClose} locked>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {restored && changed && (
+        {recovered && changed && (
           <p className="draft-note">
             {story ? 'Recuperamos as alterações que você não salvou.' : 'Recuperamos o rascunho que você começou.'}
           </p>
@@ -186,18 +189,33 @@ export function StoryDialog({ story, onClose }: Props) {
                 style={{ background: c }}
               />
             ))}
-            <label className="btn btn-outline" style={{ minHeight: 40 }} aria-describedby="cover-hint">
+            <label className="btn btn-outline" aria-describedby={form.coverImage ? undefined : 'cover-hint'}>
               <Icon name="image" size={16} />
               {form.coverImage ? 'Trocar imagem' : 'Usar imagem'}
-              <input type="file" accept={COVER_TYPES.join(',')} className="sr-only" onChange={(e) => pickImage(e.target.files?.[0])} />
+              <input
+                type="file"
+                accept={COVER_TYPES.join(',')}
+                className="sr-only"
+                onChange={(e) => {
+                  pickImage(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+              />
             </label>
-            <span id="cover-hint" className="cover-hint">
-              JPG, PNG ou WebP
-              <br />
-              até 5 MB
-              <br />
-              ideal 600 × 900 px
-            </span>
+            {form.coverImage ? (
+              <button type="button" className="btn btn-ghost" onClick={() => set('coverImage', undefined)}>
+                <Icon name="close" size={16} />
+                Tirar imagem
+              </button>
+            ) : (
+              <span id="cover-hint" className="cover-hint">
+                JPG, PNG ou WebP
+                <br />
+                até 5 MB
+                <br />
+                ideal 600 × 900 px
+              </span>
+            )}
           </div>
         </fieldset>
 

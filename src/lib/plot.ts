@@ -45,7 +45,7 @@ export function place(chapters: Chapter[], scenes: Scene[], sceneId?: string, ch
   const chapter = chapters.find((c) => c.id === (scene ? scene.chapterId : chapterId));
   if (!scene && !chapter) return undefined;
   if (!chapter) {
-    return { scene, short: 'Sem capítulo', long: scene ? sceneName(scene, scenes) : 'Sem capítulo' };
+    return { scene, short: 'Cenas', long: scene ? `Cenas · ${sceneName(scene, scenes)}` : 'Cenas' };
   }
   const name = chapterName(chapter.order, chapter.title);
   if (!scene) return { chapter, short: `Cap. ${chapter.order}`, long: name, rank: [chapter.order, 0] };

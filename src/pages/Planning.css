@@ -40,9 +40,16 @@
   box-shadow: var(--shadow-pop);
   cursor: grabbing;
 }
-.column.is-loose {
+.column.is-bank {
   border-style: dashed;
+  border-color: var(--line-strong);
   background: rgba(243, 239, 230, 0.6);
+}
+.column-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-3);
 }
 
 .column-head {

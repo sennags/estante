@@ -82,16 +82,18 @@ export const SCENE_STATUS_LABEL: Record<SceneStatus, string> = {
   revisada: 'Revisada',
 };
 
-/** Where scenes go when their chapter is deleted. */
+/** Scenes kept in the "Cenas" section of the planning, outside any chapter. */
 export const NO_CHAPTER = '';
 
 export interface Scene {
   id: string;
   storyId: string;
-  /** NO_CHAPTER while the scene waits in "Cenas sem capítulo". */
+  /** NO_CHAPTER while the scene is kept in "Cenas". */
   chapterId: string;
   order: number;
   title: string;
+  /** A brief description; missing on scenes made before it existed. */
+  description?: string;
   goal: string;
   conflict: string;
   outcome: string;
@@ -255,7 +257,7 @@ export async function addChapter(storyId: string): Promise<Chapter> {
 }
 
 /**
- * Deletes a chapter and its text. Its scenes move to "Cenas sem capítulo",
+ * Deletes a chapter and its text. Its scenes move to "Cenas",
  * and threads tied only to the chapter lose that tie.
  */
 export async function deleteChapter(chapter: Chapter) {
@@ -344,6 +346,7 @@ export async function createScene(storyId: string, chapterId: string): Promise<S
     chapterId,
     order: await nextSceneOrder(storyId, chapterId),
     title: '',
+    description: '',
     goal: '',
     conflict: '',
     outcome: '',

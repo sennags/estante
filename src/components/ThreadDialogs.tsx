@@ -22,7 +22,7 @@ type PickerProps = {
 /** Chapter, then optionally one of its scenes. */
 function PlacePicker({ chapters, scenes, value, onChange, chapterLabel }: PickerProps) {
   const loose = scenes.some((s) => s.chapterId === NO_CHAPTER);
-  // A scene without chapter is chosen through the "Cenas sem capítulo" option.
+  // A scene without chapter is chosen through the "Cenas" option.
   const [loosePicked, setLoosePicked] = useState(!value.chapterId && !!value.sceneId);
   const chapterValue = loosePicked ? 'solta' : (value.chapterId ?? '');
   const inChapter = scenes.filter((s) => (chapterValue === 'solta' ? s.chapterId === NO_CHAPTER : s.chapterId === value.chapterId));
@@ -43,7 +43,7 @@ function PlacePicker({ chapters, scenes, value, onChange, chapterLabel }: Picker
           {chapters.map((c) => (
             <option key={c.id} value={c.id}>{`${c.order}. ${chapterName(c.order, c.title)}`}</option>
           ))}
-          {loose && <option value="solta">Cenas sem capítulo</option>}
+          {loose && <option value="solta">Cenas (sem capítulo)</option>}
         </select>
       </label>
       <label className="field">

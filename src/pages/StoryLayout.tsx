@@ -107,7 +107,7 @@ function Sidebar({ story, chapters, openThreads, open, onClose, onEdit }: Sideba
   async function removeChapter(c: Chapter) {
     if (chapters.length === 1) return alert('A história precisa de pelo menos um capítulo.');
     const scenes = await db.scenes.where('chapterId').equals(c.id).count();
-    const note = scenes ? ` ${scenes === 1 ? 'A cena dele vai' : `As ${scenes} cenas dele vão`} para "Cenas sem capítulo" no planejamento.` : '';
+    const note = scenes ? ` ${scenes === 1 ? 'A cena dele vai' : `As ${scenes} cenas dele vão`} para "Cenas" no planejamento.` : '';
     if (!confirm(`Apagar "${chapterName(c.order, c.title)}"? O texto e as versões salvas serão perdidos.${note}`)) return;
     await deleteChapter(c);
     if (c.id === chapterId) navigate(`/historia/${story.id}`);

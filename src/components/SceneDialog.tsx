@@ -12,14 +12,14 @@ import './SceneDialog.css';
 
 const STATUSES = Object.keys(SCENE_STATUS_LABEL) as SceneStatus[];
 
-type Editable = Pick<Scene, 'title' | 'goal' | 'conflict' | 'outcome' | 'narrator' | 'characterIds' | 'status'>;
+type Editable = Pick<Scene, 'title' | 'description' | 'goal' | 'conflict' | 'outcome' | 'narrator' | 'characterIds' | 'status'>;
 
 /** Opens a scene card: everything is saved as you type. */
 export function SceneDialog({ scene, onClose }: { scene: Scene; onClose: () => void }) {
   const { story, chapters, scenes, threads, entries } = useStory();
   const [draft, setDraft] = useState<Editable>(() => {
-    const { title, goal, conflict, outcome, narrator, characterIds, status } = scene;
-    return { title, goal, conflict, outcome, narrator, characterIds, status };
+    const { title, description = '', goal, conflict, outcome, narrator, characterIds, status } = scene;
+    return { title, description, goal, conflict, outcome, narrator, characterIds, status };
   });
   const [threadDialog, setThreadDialog] = useState<ThreadDialogState>();
   const dirty = useRef(false);
@@ -77,14 +77,25 @@ export function SceneDialog({ scene, onClose }: { scene: Scene; onClose: () => v
           placeholder={sceneName({ ...scene, title: '' }, scenes)}
         />
 
+        <label className="field">
+          <span>Descrição</span>
+          <textarea
+            className="textarea"
+            rows={2}
+            value={draft.description}
+            onChange={(e) => set('description', e.target.value)}
+            placeholder="Em poucas linhas, o que acontece nesta cena?"
+          />
+        </label>
+
         <div className="scene-row">
           <label className="field">
             <span>Capítulo</span>
             <select className="select" value={scene.chapterId} onChange={(e) => moveSceneToChapter(scene, e.target.value)}>
+              <option value={NO_CHAPTER}>Guardada em Cenas</option>
               {chapters.map((c) => (
                 <option key={c.id} value={c.id}>{`${c.order}. ${chapterName(c.order, c.title)}`}</option>
               ))}
-              {scene.chapterId === NO_CHAPTER && <option value={NO_CHAPTER}>Sem capítulo</option>}
             </select>
           </label>
           <fieldset className="field scene-status">
@@ -119,7 +130,7 @@ export function SceneDialog({ scene, onClose }: { scene: Scene; onClose: () => v
             value={draft.narrator}
             onChange={(n) => set('narrator', n)}
             entries={entries}
-            emptyLabel={`Do capítulo: ${inherited || 'sem narrador definido'}`}
+            emptyLabel={chapter ? `Do capítulo: ${inherited || 'sem narrador definido'}` : 'Sem narrador definido'}
           />
         </div>
 

@@ -81,9 +81,10 @@ export function Planning() {
   // Board as stored, and the copy that moves around while dragging.
   const stored = useMemo(() => {
     const cols: Columns = Object.fromEntries(chapters.map((c) => [c.id, [] as string[]]));
-    const loose: string[] = [];
-    for (const s of scenes) (cols[s.chapterId] ?? loose).push(s.id);
-    if (loose.length) cols[NO_CHAPTER] = loose;
+    // Scenes of a chapter that no longer exists also land in "Cenas".
+    const bank: string[] = [];
+    for (const s of scenes) (cols[s.chapterId] ?? bank).push(s.id);
+    cols[NO_CHAPTER] = bank;
     return cols;
   }, [chapters, scenes]);
   const [dragCols, setDragCols] = useState<Columns | null>(null);
@@ -103,8 +104,8 @@ export function Planning() {
   // A click that ends a drag should not open the card.
   const lastDrop = useRef(0);
 
-  const keys = [...order, ...(columns[NO_CHAPTER] ? [NO_CHAPTER] : [])];
-  const shown = current !== undefined && keys.includes(current) ? current : (openScene?.chapterId ?? keys[0]);
+  const keys = [NO_CHAPTER, ...order];
+  const shown = current !== undefined && keys.includes(current) ? current : (openScene?.chapterId ?? order[0] ?? NO_CHAPTER);
 
   // Following a link to a scene shows its chapter on the phone.
   useEffect(() => {
@@ -186,7 +187,7 @@ export function Planning() {
   const columnTitle = (id: UniqueIdentifier) => {
     const key = isCol(id) ? fromColId(id) : containerOf(id, columns);
     const c = chapters.find((x) => x.id === key);
-    return c ? chapterName(c.order, c.title) : 'Cenas sem capítulo';
+    return c ? chapterName(c.order, c.title) : 'Cenas';
   };
   const announcements: Announcements = {
     onDragStart: ({ active: a }) => (isCol(a.id) ? `Movendo o capítulo ${columnTitle(a.id)}.` : `Movendo a cena ${sceneTitle(a.id)}.`),
@@ -263,6 +264,7 @@ export function Planning() {
         }}
       >
         <div className={`board ${narrow ? 'is-single' : ''}`}>
+          <SceneBank hidden={narrow && shown !== NO_CHAPTER} {...columnProps(NO_CHAPTER)} />
           <SortableContext items={order.map(colId)} strategy={horizontalListSortingStrategy}>
             {order.map((id) => {
               const chapter = chapters.find((c) => c.id === id);
@@ -281,7 +283,6 @@ export function Planning() {
               );
             })}
           </SortableContext>
-          {columns[NO_CHAPTER] && <LooseColumn hidden={narrow && shown !== NO_CHAPTER} {...columnProps(NO_CHAPTER)} onNewScene={undefined} />}
           {!narrow && (
             <button className="board-add" onClick={newChapter}>
               <Icon name="plus" size={18} />
@@ -316,8 +317,7 @@ export function Planning() {
 type ColumnBodyProps = {
   sceneIds: string[];
   renderCard: (id: string) => ReactNode;
-  /** Missing on the loose column: new scenes always start in a chapter. */
-  onNewScene?: () => void;
+  onNewScene: () => void;
 };
 
 function ColumnBody({ sceneIds, renderCard, onNewScene, label }: ColumnBodyProps & { label: string }) {
@@ -329,12 +329,10 @@ function ColumnBody({ sceneIds, renderCard, onNewScene, label }: ColumnBodyProps
         </ol>
       </SortableContext>
       {sceneIds.length === 0 && <p className="column-empty">Nenhuma cena ainda.</p>}
-      {onNewScene && (
-        <button className="btn btn-dashed column-add" onClick={onNewScene}>
-          <Icon name="plus" size={16} />
-          Nova cena
-        </button>
-      )}
+      <button className="btn btn-dashed column-add" onClick={onNewScene}>
+        <Icon name="plus" size={16} />
+        Nova cena
+      </button>
     </>
   );
 }
@@ -413,16 +411,17 @@ function ColumnHeading({ chapter, narrator, count, openThreads, onNarrator, hand
   );
 }
 
-function LooseColumn({ hidden, ...body }: ColumnBodyProps & { hidden: boolean }) {
+/** Scenes kept outside the chapters: ideas waiting for a place, and scenes of deleted chapters. */
+function SceneBank({ hidden, ...body }: ColumnBodyProps & { hidden: boolean }) {
   const { setNodeRef } = useDroppable({ id: colId(NO_CHAPTER), data: { type: 'column', fixed: true } });
   return (
-    <section ref={setNodeRef} className={`column is-loose ${hidden ? 'is-hidden' : ''}`} aria-label="Cenas sem capítulo">
+    <section ref={setNodeRef} className={`column is-bank ${hidden ? 'is-hidden' : ''}`} aria-label="Cenas">
       <header className="column-head">
         <span className="eyebrow">Sem capítulo</span>
-        <span className="column-title">Cenas soltas</span>
-        <span className="column-meta">Cenas de capítulos apagados. Arraste para um capítulo ou mude o capítulo na cena.</span>
+        <span className="column-title">Cenas</span>
+        <p className="column-desc">Caso você tenha uma cena em mente, faça uma breve descrição e guarde-a aqui.</p>
       </header>
-      <ColumnBody {...body} label="sem capítulo" />
+      <ColumnBody {...body} label="Cenas" />
     </section>
   );
 }
@@ -475,7 +474,7 @@ function SceneCard({ scene, onOpen, handle, overlay }: { scene: Scene; onOpen?: 
       </div>
       <button className="scene-open" onClick={onOpen} aria-label={`Abrir a cena ${title}`}>
         <span className={`scene-card-title ${scene.title.trim() ? '' : 'is-untitled'}`}>{title}</span>
-        {scene.goal.trim() && <span className="scene-card-goal">{scene.goal}</span>}
+        {(scene.description?.trim() || scene.goal.trim()) && <span className="scene-card-goal">{scene.description?.trim() || scene.goal}</span>}
         {(own || inherited) && (
           <span className="scene-card-narrator">
             Narra: {own || inherited}
@@ -510,7 +509,7 @@ function ChapterTabs({ keys, chapters, current, onPick, counts }: { keys: string
   const i = current === undefined ? -1 : keys.indexOf(current);
   const label = (k: string) => {
     const c = chapters.find((x) => x.id === k);
-    return c ? `${c.order}. ${chapterName(c.order, c.title)}` : 'Sem capítulo';
+    return c ? `${c.order}. ${chapterName(c.order, c.title)}` : 'Cenas';
   };
   return (
     <div className="chapter-tabs">

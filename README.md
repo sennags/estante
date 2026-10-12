@@ -19,10 +19,10 @@ Aplicação web para escritores organizarem e terminarem suas histórias, reunin
 - **Personagens e universo**: fichas de personagens, lugares, objetos e regras do mundo. Personagens têm campos para motivações e relações. As fichas podem ser consultadas num painel ao lado da folha enquanto você escreve.
 - **Planejamento**: a história vira um quadro em que cada capítulo é uma coluna e cada cena é um cartão.
   - Arraste os cartões para mudar a ordem ou o capítulo, e as colunas para reordenar os capítulos. No celular aparece um capítulo por vez, e o cartão é arrastado pela alça.
-  - Cada cena tem título, objetivo, conflito, resultado, situação (planejada, escrita ou revisada), personagens envolvidos e narrador.
+  - Cada cena tem título, descrição, objetivo, conflito, resultado, situação (planejada, escrita ou revisada), personagens envolvidos e narrador.
   - O capítulo tem um narrador padrão, que a cena herda ou troca por outro: um personagem das fichas ou um narrador externo.
   - O cartão mostra o narrador, os personagens e quantos fios surgiram ou foram resolvidos ali, e leva direto ao capítulo no editor.
-  - Quando um capítulo é apagado, as cenas dele vão para a coluna "Cenas sem capítulo".
+  - A seção **Cenas**, no início do quadro, guarda ideias de cena com uma breve descrição, antes de elas terem um capítulo. Quando um capítulo é apagado, as cenas dele também vão para lá.
 - **Fios narrativos**: mistérios, promessas, conflitos, acontecimentos e objetos importantes que a história abriu.
   - Cada fio fica ligado à cena e ao capítulo onde surgiu. Se a cena muda de capítulo, o fio vai junto.
   - Um fio pode ser marcado como resolvido, com a cena e o modo, ou como abandonado de propósito, com o motivo. Também pode ser reaberto.

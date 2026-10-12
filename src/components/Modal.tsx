@@ -37,6 +37,8 @@ export function Modal({ title, onClose, children, wide, locked }: ModalProps) {
       className="dialog"
       style={wide ? { width: 'min(760px, calc(100vw - 32px))' } : undefined}
       onKeyDown={(e) => {
+        // Keys from a dialog opened on top of this one are that dialog's business.
+        if ((e.target as Element).closest('dialog') !== ref.current) return;
         // Handling Esc here stops the browser from starting a cancel at all.
         if (e.key === 'Escape') {
           e.preventDefault();

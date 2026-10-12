@@ -2,7 +2,7 @@
 
 Aplicação web para escritores organizarem e terminarem suas histórias, reunindo planejamento, referências e escrita no mesmo lugar. O nome joga com os dois sentidos da palavra: o enredo de uma história e o entrelaçado de fios de um tecido, como os fios narrativos que o app ajuda a acompanhar. Funciona no computador e no celular, e todos os dados ficam salvos no próprio navegador.
 
-## O que já funciona (fase 1)
+## O que já funciona
 
 - **Biblioteca**: as histórias ficam numa estante, separadas pela fase (planejamento, escrita e revisão). Cada uma tem título, sinopse, gênero e capa, com uma cor ou uma imagem sua. No topo há um atalho para o último capítulo editado.
 - **Editor em folha de papel**:
@@ -17,11 +17,20 @@ Aplicação web para escritores organizarem e terminarem suas histórias, reunin
 - **Lixeira**: uma história apagada vai para a lixeira e fica lá por 7 dias. Nesse prazo dá para devolvê-la à estante ou apagá-la na hora; depois disso, ela é apagada sozinha.
 - **Rascunhos**: o que você digita ao criar ou editar uma história fica guardado até salvar, mesmo se fechar a janela. A janela só fecha pelo botão Cancelar ou pelo X.
 - **Personagens e universo**: fichas de personagens, lugares, objetos e regras do mundo. Personagens têm campos para motivações e relações. As fichas podem ser consultadas num painel ao lado da folha enquanto você escreve.
+- **Planejamento**: a história vira um quadro em que cada capítulo é uma coluna e cada cena é um cartão.
+  - Arraste os cartões para mudar a ordem ou o capítulo, e as colunas para reordenar os capítulos. No celular aparece um capítulo por vez, e o cartão é arrastado pela alça.
+  - Cada cena tem título, objetivo, conflito, resultado, situação (planejada, escrita ou revisada), personagens envolvidos e narrador.
+  - O capítulo tem um narrador padrão, que a cena herda ou troca por outro: um personagem das fichas ou um narrador externo.
+  - O cartão mostra o narrador, os personagens e quantos fios surgiram ou foram resolvidos ali, e leva direto ao capítulo no editor.
+  - Quando um capítulo é apagado, as cenas dele vão para a coluna "Cenas sem capítulo".
+- **Fios narrativos**: mistérios, promessas, conflitos, pistas plantadas e objetos importantes que a história abriu.
+  - Cada fio fica ligado à cena e ao capítulo onde surgiu. Se a cena muda de capítulo, o fio vai junto.
+  - Um fio pode ser marcado como resolvido, com a cena e o modo, ou como abandonado de propósito, com o motivo. Também pode ser reaberto.
+  - A tela "Fios narrativos" filtra por situação, tipo e capítulo, e avisa quando um fio está aberto há muitos capítulos ou foi resolvido antes de surgir.
+  - Ao lado da folha, a aba "Fios" mostra o que está em aberto e permite resolver, abandonar ou registrar um fio sem sair do capítulo.
+  - Na biblioteca, o cartão "Continuar escrevendo" mostra quantos fios estão em aberto.
 
-## Próxima fase
-
-- Planejamento da narrativa: capítulos e cenas em cartões arrastáveis, com objetivo, conflito e resultado de cada cena.
-- Painel de fios narrativos: mistérios, promessas e conflitos em aberto, ligados à cena onde surgiram e marcados como resolvidos ou abandonados de propósito.
+O planejamento e os fios não entram na exportação, que leva só o texto do livro.
 
 ## Como rodar
 
@@ -36,7 +45,7 @@ Para gerar a versão de produção, rode `npm run build`. O resultado vai para `
 
 ## Tecnologias
 
-React, TypeScript e Vite. Os dados ficam no IndexedDB do navegador, acessado pelo Dexie. O editor é feito com TipTap (ProseMirror). A exportação usa `docx` e `pdfmake`. As fontes são Newsreader, Literata e Instrument Sans, servidas localmente pelo Fontsource.
+React, TypeScript e Vite. Os dados ficam no IndexedDB do navegador, acessado pelo Dexie. O editor é feito com TipTap (ProseMirror), e o arrastar do planejamento usa o dnd-kit. A exportação usa `docx` e `pdfmake`. As fontes são Newsreader, Literata e Instrument Sans, servidas localmente pelo Fontsource.
 
 ## Limitações conhecidas
 

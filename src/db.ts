@@ -24,11 +24,18 @@ export interface Story {
   updatedAt: number;
 }
 
+/** Who tells a chapter or scene: a character from the entries, or an outside voice. */
+export type Narrator = { kind: 'personagem'; id: string } | { kind: 'externo'; label: string };
+
+export const EXTERNAL_NARRATORS = ['Narrador onisciente', 'Narrador observador'];
+
 export interface Chapter {
   id: string;
   storyId: string;
   order: number;
   title: string;
+  /** Default narrator for the chapter's scenes. */
+  narrator?: Narrator;
   content: JSONContent;
   wordCount: number;
   pageCount: number;
@@ -67,11 +74,82 @@ export interface Entry {
   updatedAt: number;
 }
 
+export type SceneStatus = 'planejada' | 'escrita' | 'revisada';
+
+export const SCENE_STATUS_LABEL: Record<SceneStatus, string> = {
+  planejada: 'Planejada',
+  escrita: 'Escrita',
+  revisada: 'Revisada',
+};
+
+/** Where scenes go when their chapter is deleted. */
+export const NO_CHAPTER = '';
+
+export interface Scene {
+  id: string;
+  storyId: string;
+  /** NO_CHAPTER while the scene waits in "Cenas sem capítulo". */
+  chapterId: string;
+  order: number;
+  title: string;
+  goal: string;
+  conflict: string;
+  outcome: string;
+  /** Unset: the chapter's narrator. */
+  narrator?: Narrator;
+  characterIds: string[];
+  status: SceneStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type ThreadKind = 'misterio' | 'promessa' | 'conflito' | 'pista' | 'objeto';
+
+export const THREAD_KIND_LABEL: Record<ThreadKind, string> = {
+  misterio: 'Mistério',
+  promessa: 'Promessa',
+  conflito: 'Conflito',
+  pista: 'Pista plantada',
+  objeto: 'Objeto importante',
+};
+
+export type ThreadStatus = 'aberto' | 'resolvido' | 'abandonado';
+
+export const THREAD_STATUS_LABEL: Record<ThreadStatus, string> = {
+  aberto: 'Aberto',
+  resolvido: 'Resolvido',
+  abandonado: 'Abandonado de propósito',
+};
+
+/**
+ * A mystery, promise or conflict the story opened. The scene, when set, is
+ * the real link (the thread follows it to another chapter); the chapter is
+ * kept in step with it and stands alone when there is no scene.
+ */
+export interface Thread {
+  id: string;
+  storyId: string;
+  kind: ThreadKind;
+  title: string;
+  note: string;
+  originChapterId?: string;
+  originSceneId?: string;
+  status: ThreadStatus;
+  endChapterId?: string;
+  endSceneId?: string;
+  /** How it was resolved, or why it was dropped. */
+  endNote: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export const db = new Dexie('trama') as Dexie & {
   stories: EntityTable<Story, 'id'>;
   chapters: EntityTable<Chapter, 'id'>;
   versions: EntityTable<ChapterVersion, 'id'>;
   entries: EntityTable<Entry, 'id'>;
+  scenes: EntityTable<Scene, 'id'>;
+  threads: EntityTable<Thread, 'id'>;
 };
 
 db.version(1).stores({
@@ -82,6 +160,10 @@ db.version(1).stores({
 });
 db.version(2).stores({
   stories: 'id, status, updatedAt, deletedAt',
+});
+db.version(3).stores({
+  scenes: 'id, storyId, chapterId',
+  threads: 'id, storyId, status, originSceneId, endSceneId',
 });
 
 export const COVER_COLORS = ['#6E2E2B', '#24344D', '#2F4A3F', '#B88A3B', '#D9CBB0', '#4B3B5C'];
@@ -131,13 +213,15 @@ export async function purgeTrash() {
   for (const id of expired) await deleteStory(id);
 }
 
-/** Permanently removes a story with its chapters, versions and entries. */
+/** Permanently removes a story with everything that belongs to it. */
 export async function deleteStory(id: string) {
-  await db.transaction('rw', [db.stories, db.chapters, db.versions, db.entries], async () => {
+  await db.transaction('rw', [db.stories, db.chapters, db.versions, db.entries, db.scenes, db.threads], async () => {
     const chapterIds = (await db.chapters.where('storyId').equals(id).primaryKeys()) as string[];
     await db.versions.where('chapterId').anyOf(chapterIds).delete();
     await db.chapters.where('storyId').equals(id).delete();
     await db.entries.where('storyId').equals(id).delete();
+    await db.scenes.where('storyId').equals(id).delete();
+    await db.threads.where('storyId').equals(id).delete();
     await db.stories.delete(id);
   });
 }
@@ -164,10 +248,22 @@ export async function addChapter(storyId: string): Promise<Chapter> {
   return chapter;
 }
 
+/**
+ * Deletes a chapter and its text. Its scenes move to "Cenas sem capítulo",
+ * and threads tied only to the chapter lose that tie.
+ */
 export async function deleteChapter(chapter: Chapter) {
-  await db.transaction('rw', db.chapters, db.versions, db.stories, async () => {
+  await db.transaction('rw', [db.chapters, db.versions, db.stories, db.scenes, db.threads], async () => {
     await db.versions.where('chapterId').equals(chapter.id).delete();
     await db.chapters.delete(chapter.id);
+    const loose = await db.scenes.where('chapterId').equals(NO_CHAPTER).filter((s) => s.storyId === chapter.storyId).toArray();
+    const last = loose.reduce((n, s) => Math.max(n, s.order), 0);
+    const orphans = await db.scenes.where('chapterId').equals(chapter.id).sortBy('order');
+    await Promise.all(orphans.map((s, i) => db.scenes.update(s.id, { chapterId: NO_CHAPTER, order: last + i + 1 })));
+    await db.threads.where('storyId').equals(chapter.storyId).modify((t) => {
+      if (t.originChapterId === chapter.id) delete t.originChapterId;
+      if (t.endChapterId === chapter.id) delete t.endChapterId;
+    });
     const rest = await getChapters(chapter.storyId);
     await Promise.all(rest.map((c, i) => db.chapters.update(c.id, { order: i + 1 })));
     const story = await db.stories.get(chapter.storyId);
@@ -186,6 +282,13 @@ export async function moveChapter(chapter: Chapter, dir: -1 | 1) {
   await db.transaction('rw', db.chapters, async () => {
     await db.chapters.update(chapter.id, { order: other.order });
     await db.chapters.update(other.id, { order: chapter.order });
+  });
+}
+
+/** Puts the story's chapters in the given order. */
+export async function reorderChapters(ids: string[]) {
+  await db.transaction('rw', db.chapters, async () => {
+    await Promise.all(ids.map((id, i) => db.chapters.update(id, { order: i + 1 })));
   });
 }
 
@@ -215,4 +318,89 @@ export async function createEntry(storyId: string, kind: EntryKind): Promise<Ent
   const entry: Entry = { id: uid(), storyId, kind, name: '', summary: '', description: '', motivations: '', relations: '', createdAt: now, updatedAt: now };
   await db.entries.add(entry);
   return entry;
+}
+
+export async function getScenes(storyId: string): Promise<Scene[]> {
+  const scenes = await db.scenes.where('storyId').equals(storyId).toArray();
+  return scenes.sort((a, b) => a.order - b.order);
+}
+
+async function nextSceneOrder(storyId: string, chapterId: string) {
+  const siblings = await db.scenes.where('chapterId').equals(chapterId).filter((s) => s.storyId === storyId).toArray();
+  return siblings.reduce((n, s) => Math.max(n, s.order), 0) + 1;
+}
+
+export async function createScene(storyId: string, chapterId: string): Promise<Scene> {
+  const now = Date.now();
+  const scene: Scene = {
+    id: uid(),
+    storyId,
+    chapterId,
+    order: await nextSceneOrder(storyId, chapterId),
+    title: '',
+    goal: '',
+    conflict: '',
+    outcome: '',
+    characterIds: [],
+    status: 'planejada',
+    createdAt: now,
+    updatedAt: now,
+  };
+  await db.scenes.add(scene);
+  return scene;
+}
+
+/**
+ * Saves new places for scenes after a drag or a move to another chapter.
+ * Threads tied to a scene that changed chapter follow it.
+ */
+export async function placeScenes(places: { id: string; chapterId: string; order: number }[]) {
+  await db.transaction('rw', db.scenes, db.threads, async () => {
+    for (const p of places) {
+      const scene = await db.scenes.get(p.id);
+      if (!scene || (scene.chapterId === p.chapterId && scene.order === p.order)) continue;
+      await db.scenes.update(p.id, { chapterId: p.chapterId, order: p.order, updatedAt: Date.now() });
+      if (scene.chapterId === p.chapterId) continue;
+      const chapterId = p.chapterId || undefined;
+      await db.threads.where('originSceneId').equals(p.id).modify({ originChapterId: chapterId });
+      await db.threads.where('endSceneId').equals(p.id).modify({ endChapterId: chapterId });
+    }
+  });
+}
+
+/** Moves one scene to the end of another chapter. */
+export async function moveSceneToChapter(scene: Scene, chapterId: string) {
+  if (scene.chapterId === chapterId) return;
+  await placeScenes([{ id: scene.id, chapterId, order: await nextSceneOrder(scene.storyId, chapterId) }]);
+}
+
+/** Deletes a scene; its threads stay, tied only to the chapter. */
+export async function deleteScene(scene: Scene) {
+  const chapterId = scene.chapterId || undefined;
+  await db.transaction('rw', db.scenes, db.threads, async () => {
+    await db.threads.where('originSceneId').equals(scene.id).modify((t) => {
+      delete t.originSceneId;
+      t.originChapterId = chapterId;
+    });
+    await db.threads.where('endSceneId').equals(scene.id).modify((t) => {
+      delete t.endSceneId;
+      t.endChapterId = chapterId;
+    });
+    await db.scenes.delete(scene.id);
+  });
+}
+
+export async function createThread(data: Pick<Thread, 'storyId' | 'kind' | 'title' | 'note' | 'originChapterId' | 'originSceneId'>): Promise<Thread> {
+  const now = Date.now();
+  const thread: Thread = { id: uid(), status: 'aberto', endNote: '', createdAt: now, updatedAt: now, ...data };
+  await db.threads.add(thread);
+  return thread;
+}
+
+export async function updateThread(id: string, changes: Partial<Thread>) {
+  await db.threads.update(id, { ...changes, updatedAt: Date.now() });
+}
+
+export async function reopenThread(id: string) {
+  await updateThread(id, { status: 'aberto', endChapterId: undefined, endSceneId: undefined, endNote: '' });
 }

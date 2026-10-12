@@ -1,0 +1,59 @@
+.thread-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.thread-kinds {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.place-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.thread-form-lead {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.thread-form-title {
+  font-family: var(--serif-display);
+  font-size: 20px;
+  line-height: 1.25;
+}
+.thread-form-origin {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.thread-warning {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--brass-soft);
+  color: #6b4614;
+  font-size: 14px;
+}
+.thread-warning svg {
+  margin-top: 2px;
+}
+.thread-hint {
+  margin: -8px 0 0;
+  font-size: 13px;
+  color: var(--ink-4);
+}
+
+@media (max-width: 560px) {
+  .place-picker {
+    grid-template-columns: 1fr;
+  }
+}

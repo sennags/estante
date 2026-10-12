@@ -98,16 +98,17 @@ a.area:hover {
   color: var(--ink);
   font-weight: 600;
 }
-.area.is-soon {
-  color: var(--ink-5);
-}
-.soon {
+.area-count {
   margin-left: auto;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--ink-3);
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 11px;
+  background: var(--brass-soft);
+  color: #6b4614;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .sidebar-chapters {

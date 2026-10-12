@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { createEntry, db, KIND_LABEL, type Entry } from '../db';
+import { createEntry, db, KIND_LABEL, type Entry, type Thread } from '../db';
+import { origin, sortThreads } from '../lib/plot';
+import { useStory } from '../pages/StoryLayout';
 import { Icon } from './Icon';
+import { ThreadCard, type ThreadAction } from './ThreadCard';
+import { ThreadDialogs, type ThreadDialogState } from './ThreadDialogs';
 import './ReferencePanel.css';
 
 type Tab = 'personagens' | 'universo' | 'fios';
 
-export function ReferencePanel({ storyId, onClose }: { storyId: string; onClose: () => void }) {
+export function ReferencePanel({ storyId, chapterId, onClose }: { storyId: string; chapterId: string; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('personagens');
   const [query, setQuery] = useState('');
   const [openId, setOpenId] = useState<string>();
@@ -41,10 +45,7 @@ export function ReferencePanel({ storyId, onClose }: { storyId: string; onClose:
       </div>
 
       {tab === 'fios' ? (
-        <div className="empty refs-soon">
-          <Icon name="thread" size={24} />
-          <p>O painel de fios narrativos chega na próxima fase: mistérios, promessas e conflitos em aberto, ligados às cenas.</p>
-        </div>
+        <ThreadsTab chapterId={chapterId} />
       ) : (
         <>
           <label className="search refs-search">
@@ -112,5 +113,54 @@ function RefCard({ entry, open, onToggle }: { entry: Entry; open: boolean; onTog
         </div>
       )}
     </article>
+  );
+}
+
+/** Open threads beside the sheet, resolved or dropped from the chapter being written. */
+function ThreadsTab({ chapterId }: { chapterId: string }) {
+  const { story, chapters, scenes, threads } = useStory();
+  const [openId, setOpenId] = useState<string>();
+  const [dialog, setDialog] = useState<ThreadDialogState>();
+  const open = sortThreads(threads.filter((t) => t.status === 'aberto'), chapters, scenes);
+  const here = (t: Thread) => origin(t, chapters, scenes)?.chapter?.id === chapterId;
+
+  const act = (thread: Thread, action: ThreadAction) =>
+    setDialog(action === 'editar' ? { kind: 'editar', thread } : { kind: 'fim', thread, mode: action, chapterId });
+
+  return (
+    <>
+      <div className="refs-threads-head">
+        <h2>Fios em aberto</h2>
+        <p>O que a história prometeu e ainda não cumpriu.</p>
+      </div>
+      <div className="refs-list">
+        {open.length === 0 && (
+          <p className="refs-empty">
+            {threads.length
+              ? 'Nenhum fio em aberto. Tudo amarrado!'
+              : 'Nenhum fio registrado ainda. Registre os mistérios, promessas e conflitos que a história abrir.'}
+          </p>
+        )}
+        {open.map((t) => (
+          <ThreadCard
+            key={t.id}
+            thread={t}
+            chapters={chapters}
+            scenes={scenes}
+            compact
+            highlight={here(t)}
+            open={openId === t.id}
+            onToggle={() => setOpenId(openId === t.id ? undefined : t.id)}
+            onAction={act}
+          />
+        ))}
+      </div>
+      <button className="btn btn-dashed" onClick={() => setDialog({ kind: 'novo', chapterId })}>
+        <Icon name="plus" size={16} />
+        Registrar novo fio
+      </button>
+      <Link to={`/historia/${story.id}/fios`} className="refs-all">Ver todos os fios</Link>
+      <ThreadDialogs storyId={story.id} state={dialog} onClose={() => setDialog(undefined)} />
+    </>
   );
 }

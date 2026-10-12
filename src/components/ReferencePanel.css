@@ -56,16 +56,21 @@
   color: var(--ink-4);
   font-size: 14px;
 }
-.refs-soon {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+.refs-threads-head h2 {
+  font-size: 22px;
+}
+.refs-threads-head p {
+  margin: 2px 0 0;
+  font-size: 13px;
   color: var(--ink-3);
 }
-.refs-soon p {
-  margin: 0;
-  font-size: 14px;
+.refs-all {
+  align-self: center;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .ref-card {

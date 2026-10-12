@@ -275,7 +275,7 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
         )}
       </main>
 
-      {refsOpen && !focus && <ReferencePanel storyId={story.id} onClose={() => setRefsOpen(false)} />}
+      {refsOpen && !focus && <ReferencePanel storyId={story.id} chapterId={chapter.id} onClose={() => setRefsOpen(false)} />}
       {versionsOpen && editor && <VersionsDialog chapterId={chapter.id} editor={editor} onClose={() => setVersionsOpen(false)} />}
     </>
   );

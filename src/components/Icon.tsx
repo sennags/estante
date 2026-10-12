@@ -20,9 +20,14 @@ const PATHS = {
   book: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11',
   users: 'M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1 M13.5 7.5a4 4 0 1 1-8 0a4 4 0 1 1 8 0 M17 11a3 3 0 0 0 0-6 M21 19v-1a4 4 0 0 0-3-3.9',
   layout: 'M4 4h7v7H4z M13 4h7v4h-7z M13 10h7v10h-7z M4 13h7v7H4z',
-  thread: 'M4 6c4 0 4 6 8 6s4-6 8-6 M4 18c4 0 4-6 8-6s4 6 8 6',
+  thread: 'M3 12c3-6 6-6 9 0s6 6 9 0',
   image: 'M4 5h16v14H4z M4 16l5-5 4 4 3-3 4 4 M16.5 9a1.5 1.5 0 1 1-3 0a1.5 1.5 0 1 1 3 0',
   file: 'M6 3h9l4 4v14H6z M14 3v5h5',
+  grip: 'M9 5v.01 M9 12v.01 M9 19v.01 M15 5v.01 M15 12v.01 M15 19v.01',
+  alert: 'M12 4l9 16H3z M12 10v4 M12 17v.01',
+  undo: 'M9 14L4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-3',
+  chevronLeft: 'M15 6l-6 6 6 6',
+  chevronRight: 'M9 6l6 6-6 6',
 } as const;
 
 export type IconName = keyof typeof PATHS;

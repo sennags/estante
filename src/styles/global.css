@@ -297,3 +297,101 @@ a {
   color: #6b4614;
   font-size: 14px;
 }
+
+.form-error {
+  margin: 0;
+  color: var(--danger);
+}
+
+/* Colors per kind of narrative thread; also used on chips and cards. */
+.kind-misterio {
+  --kind: #8a5a1e;
+}
+.kind-promessa {
+  --kind: #2f4a3f;
+}
+.kind-conflito {
+  --kind: #6e2e2b;
+}
+.kind-pista {
+  --kind: #24344d;
+}
+.kind-objeto {
+  --kind: #4b3b5c;
+}
+
+/* Chips (filters and single choices) */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip[aria-pressed='true'],
+.chip[aria-checked='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--ground);
+}
+.kind-chip[aria-checked='true'] {
+  background: var(--kind);
+  border-color: var(--kind);
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  gap: 6px;
+  border-radius: 8px;
+}
+
+/* Page heading shared by the story areas */
+.menu-btn {
+  display: none;
+}
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-head h1 {
+  font-size: 30px;
+  line-height: 1.15;
+}
+.page-head-action {
+  margin-left: auto;
+}
+.page-intro {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 14px;
+  max-width: 640px;
+}
+
+@media (max-width: 900px) {
+  .menu-btn {
+    display: inline-flex;
+    margin-left: -10px;
+  }
+  .page-head h1 {
+    font-size: 24px;
+  }
+}
+@media (max-width: 480px) {
+  .page-head-action span {
+    display: none;
+  }
+  .page-head-action {
+    width: 44px;
+    padding: 0;
+  }
+}

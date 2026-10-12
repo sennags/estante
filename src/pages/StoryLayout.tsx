@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { addChapter, db, deleteChapter, getChapters, moveChapter, STATUS_LABEL, type Chapter, type Story } from '../db';
+import { addChapter, db, deleteChapter, getChapters, getScenes, moveChapter, STATUS_LABEL, type Chapter, type Entry, type Scene, type Story, type Thread } from '../db';
 import { Icon, type IconName } from '../components/Icon';
 import { StoryDialog } from '../components/StoryDialog';
 import { chapterName } from '../lib/text';
@@ -10,6 +10,9 @@ import './StoryLayout.css';
 type StoryCtx = {
   story: Story;
   chapters: Chapter[];
+  scenes: Scene[];
+  threads: Thread[];
+  entries: Entry[];
   focus: boolean;
   setFocus: (on: boolean) => void;
   openMenu: () => void;
@@ -22,6 +25,9 @@ export function StoryLayout() {
   const { storyId = '' } = useParams();
   const story = useLiveQuery(() => db.stories.get(storyId), [storyId], null);
   const chapters = useLiveQuery(() => getChapters(storyId), [storyId]);
+  const scenes = useLiveQuery(() => getScenes(storyId), [storyId]);
+  const threads = useLiveQuery(() => db.threads.where('storyId').equals(storyId).toArray(), [storyId]);
+  const entries = useLiveQuery(() => db.entries.where('storyId').equals(storyId).sortBy('name'), [storyId]);
   const [focus, setFocus] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -29,16 +35,17 @@ export function StoryLayout() {
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
-  if (story === null || !chapters) return null;
+  if (story === null || !chapters || !scenes || !threads || !entries) return null;
   if (!story || story.deletedAt) return <Navigate to="/" replace />;
 
   return (
-    <Ctx.Provider value={{ story, chapters, focus, setFocus, openMenu: () => setMenuOpen(true) }}>
+    <Ctx.Provider value={{ story, chapters, scenes, threads, entries, focus, setFocus, openMenu: () => setMenuOpen(true) }}>
       <div className={`story ${focus ? 'is-focus' : ''}`}>
         {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
         <Sidebar
           story={story}
           chapters={chapters}
+          openThreads={threads.filter((t) => t.status === 'aberto').length}
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
           onEdit={() => setEditing(true)}
@@ -81,12 +88,13 @@ function EmptyStory() {
 type SidebarProps = {
   story: Story;
   chapters: Chapter[];
+  openThreads: number;
   open: boolean;
   onClose: () => void;
   onEdit: () => void;
 };
 
-function Sidebar({ story, chapters, open, onClose, onEdit }: SidebarProps) {
+function Sidebar({ story, chapters, openThreads, open, onClose, onEdit }: SidebarProps) {
   const navigate = useNavigate();
   const { chapterId } = useParams();
   const [arranging, setArranging] = useState(false);
@@ -98,7 +106,9 @@ function Sidebar({ story, chapters, open, onClose, onEdit }: SidebarProps) {
 
   async function removeChapter(c: Chapter) {
     if (chapters.length === 1) return alert('A história precisa de pelo menos um capítulo.');
-    if (!confirm(`Apagar "${chapterName(c.order, c.title)}"? O texto e as versões salvas serão perdidos.`)) return;
+    const scenes = await db.scenes.where('chapterId').equals(c.id).count();
+    const note = scenes ? ` ${scenes === 1 ? 'A cena dele vai' : `As ${scenes} cenas dele vão`} para "Cenas sem capítulo" no planejamento.` : '';
+    if (!confirm(`Apagar "${chapterName(c.order, c.title)}"? O texto e as versões salvas serão perdidos.${note}`)) return;
     await deleteChapter(c);
     if (c.id === chapterId) navigate(`/historia/${story.id}`);
   }
@@ -123,9 +133,15 @@ function Sidebar({ story, chapters, open, onClose, onEdit }: SidebarProps) {
       </button>
 
       <div className="sidebar-areas">
-        <Area icon="layout" label="Planejamento" soon />
+        <Area icon="layout" label="Planejamento" to={`/historia/${story.id}/planejamento`} />
         <Area icon="users" label="Personagens e universo" to={`/historia/${story.id}/universo`} />
-        <Area icon="thread" label="Fios narrativos" soon />
+        <Area
+          icon="thread"
+          label="Fios narrativos"
+          to={`/historia/${story.id}/fios`}
+          count={openThreads}
+          countLabel={`${openThreads} ${openThreads === 1 ? 'fio aberto' : 'fios abertos'}`}
+        />
       </div>
 
       <div className="sidebar-chapters">
@@ -167,20 +183,18 @@ function Sidebar({ story, chapters, open, onClose, onEdit }: SidebarProps) {
   );
 }
 
-function Area({ icon, label, to, soon }: { icon: IconName; label: string; to?: string; soon?: boolean }) {
-  if (soon || !to) {
-    return (
-      <span className="area is-soon" aria-disabled="true">
-        <Icon name={icon} size={18} />
-        {label}
-        <span className="soon">em breve</span>
-      </span>
-    );
-  }
+type AreaProps = { icon: IconName; label: string; to: string; count?: number; countLabel?: string };
+
+function Area({ icon, label, to, count, countLabel }: AreaProps) {
   return (
     <NavLink to={to} className="area">
       <Icon name={icon} size={18} />
       {label}
+      {!!count && (
+        <span className="area-count" aria-label={countLabel}>
+          {count}
+        </span>
+      )}
     </NavLink>
   );
 }

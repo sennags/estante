@@ -306,3 +306,24 @@
     font-size: 12px;
   }
 }
+
+.continue-threads {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 14px;
+  color: var(--ink-3);
+  text-decoration: none;
+}
+.continue-threads:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.continue-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brass);
+}

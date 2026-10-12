@@ -30,29 +30,7 @@
   color: var(--ink-3);
   font-size: 14px;
 }
-.menu-btn {
-  display: none;
-}
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.chip {
-  min-height: 36px;
-  padding: 0 14px;
-  border: 1px solid var(--line-strong);
-  border-radius: 18px;
-  background: transparent;
-  font-size: 13px;
-  cursor: pointer;
-}
-.chip[aria-pressed='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--ground);
-}
 
 .universe-add {
   display: flex;
@@ -177,10 +155,6 @@
 }
 
 @media (max-width: 900px) {
-  .menu-btn {
-    display: inline-flex;
-    margin-left: -10px;
-  }
   .universe-list {
     flex: 1;
     border-right: 0;

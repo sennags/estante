@@ -14,16 +14,22 @@ const SHELVES: StoryStatus[] = ['planejamento', 'escrita', 'revisao'];
 export function Library() {
   const all = useLiveQuery(() => db.stories.orderBy('updatedAt').reverse().toArray(), []);
   const chapters = useLiveQuery(() => db.chapters.toArray(), []);
+  const scenes = useLiveQuery(() => db.scenes.toArray(), []);
+  const openThreads = useLiveQuery(() => db.threads.where('status').equals('aberto').toArray(), []);
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
 
-  if (!all || !chapters) return null;
+  if (!all || !chapters || !scenes || !openThreads) return null;
   const stories = all.filter((s) => !isInTrash(s));
   const trashed = all.length - stories.length;
 
   const stats = (s: Story) => {
     const own = chapters.filter((c) => c.storyId === s.id);
-    return { count: own.length, words: own.reduce((n, c) => n + c.wordCount, 0) };
+    return {
+      count: own.length,
+      words: own.reduce((n, c) => n + c.wordCount, 0),
+      scenes: scenes.filter((x) => x.storyId === s.id).length,
+    };
   };
 
   const q = query.trim().toLowerCase();
@@ -33,6 +39,7 @@ export function Library() {
 
   const recent = stories[0];
   const recentChapter = recent && chapters.find((c) => c.id === recent.lastChapterId);
+  const recentThreads = recent ? openThreads.filter((t) => t.storyId === recent.id).length : 0;
 
   return (
     <div className="library">
@@ -79,6 +86,12 @@ export function Library() {
               <p>
                 {chapterName(recentChapter.order, recentChapter.title)} · editado {relativeTime(recent.updatedAt)}
               </p>
+              {recentThreads > 0 && (
+                <Link to={`/historia/${recent.id}/fios`} className="continue-threads">
+                  <span className="continue-dot" aria-hidden="true" />
+                  {plural(recentThreads, 'fio narrativo em aberto', 'fios narrativos em aberto')}
+                </Link>
+              )}
             </div>
             <Link className="btn btn-dark" to={`/historia/${recent.id}/capitulo/${recentChapter.id}`}>
               Abrir a folha
@@ -99,14 +112,15 @@ export function Library() {
                 </div>
                 <div className="shelf-row">
                   {books.map((s) => {
-                    const { count, words } = stats(s);
+                    const { count, words, scenes: sceneCount } = stats(s);
                     return (
                       <Link key={s.id} to={`/historia/${s.id}`} className="book" title={s.synopsis || s.title}>
                         <span className="book-stand"><Cover story={s} /></span>
                         <span className="book-meta">
                           <span className="book-title">{s.title}</span>
                           <span className="book-sub">
-                            {plural(count, 'capítulo', 'capítulos')} · {formatNumber(words)} palavras
+                            {plural(count, 'capítulo', 'capítulos')} ·{' '}
+                            {status === 'planejamento' && sceneCount ? plural(sceneCount, 'cena', 'cenas') : `${formatNumber(words)} palavras`}
                           </span>
                         </span>
                       </Link>

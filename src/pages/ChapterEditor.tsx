@@ -230,9 +230,6 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
             <ToolButton label="Itálico" active={marks?.italic} onClick={() => editor?.chain().focus().toggleItalic().run()}>
               <i style={{ fontFamily: 'var(--serif-display)', fontSize: 18 }}>I</i>
             </ToolButton>
-            <ToolButton label="Nova cena" onClick={() => editor?.chain().focus().setHorizontalRule().run()}>
-              <span style={{ fontSize: 18 }}>⁂</span>
-            </ToolButton>
             <span className="toolbar-sep" />
             <span className="toolbar-count">{formatNumber(words)} palavras</span>
             <span className="toolbar-sep" />

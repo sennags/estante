@@ -14,11 +14,10 @@
 }
 
 .board {
-  flex: 1;
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  padding: 16px clamp(16px, 3vw, 32px) 48px;
+  padding: 16px clamp(16px, 3vw, 32px) 32px;
   overflow-x: auto;
   scroll-padding-inline: 32px;
 }
@@ -40,16 +39,47 @@
   box-shadow: var(--shadow-pop);
   cursor: grabbing;
 }
-.column.is-bank {
-  border-style: dashed;
-  border-color: var(--line-strong);
-  background: rgba(243, 239, 230, 0.6);
+/* "Cenas": ideas kept below the board */
+.scene-bank {
+  margin: 8px clamp(16px, 3vw, 32px) 56px;
+  padding: 24px clamp(16px, 2.5vw, 28px) 20px;
+  border-top: 1px solid var(--line-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 0 0 14px 14px;
+  transition: background 0.15s ease;
 }
-.column-desc {
+.scene-bank.is-over {
+  background: rgba(255, 253, 248, 0.45);
+}
+.scene-bank-head h2 {
+  font-size: 26px;
+}
+.scene-bank-head p {
   margin: 4px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 14px;
   color: var(--ink-3);
+}
+.bank-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  min-height: 8px;
+}
+.bank-cards > li.is-dragging {
+  opacity: 0.35;
+}
+.scene-bank .column-add {
+  align-self: flex-start;
+  min-width: 200px;
+}
+.scene-bank .column-empty {
+  text-align: left;
+  padding: 0;
 }
 
 .column-head {
@@ -315,7 +345,7 @@ a.column-title svg {
   background: var(--surface);
 }
 .planning-new-chapter {
-  margin: 0 16px 40px;
+  margin: 0 12px 24px;
 }
 
 @media (max-width: 900px) {

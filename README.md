@@ -9,7 +9,7 @@ Aplicação web para escritores organizarem e terminarem suas histórias, reunin
   - O texto passa sozinho para a página seguinte quando a atual enche. A numeração de páginas segue pelo livro inteiro, e cada capítulo começa numa página nova.
   - O botão **+ Nova página em branco** cria uma página vazia no fim do capítulo.
   - Salva sozinho e mostra a contagem de palavras.
-  - Tem negrito, itálico e separador de cena (⁂).
+  - Tem negrito e itálico.
   - O **modo foco** esconde tudo menos a folha. Para sair, aperte Esc.
   - A barra de ferramentas pode ser recolhida.
   - **Versões**: uma cópia do capítulo é guardada sozinha a cada 10 minutos de escrita, e você também pode guardar uma na hora. Qualquer versão pode ser restaurada.
@@ -22,7 +22,7 @@ Aplicação web para escritores organizarem e terminarem suas histórias, reunin
   - Cada cena tem título, descrição, objetivo, conflito, resultado, situação (planejada, escrita ou revisada), personagens envolvidos e narrador.
   - O capítulo tem um narrador padrão, que a cena herda ou troca por outro: um personagem das fichas ou um narrador externo.
   - O cartão mostra o narrador, os personagens e quantos fios surgiram ou foram resolvidos ali, e leva direto ao capítulo no editor.
-  - A seção **Cenas**, no início do quadro, guarda ideias de cena com uma breve descrição, antes de elas terem um capítulo. Quando um capítulo é apagado, as cenas dele também vão para lá.
+  - Abaixo do quadro, a seção **Cenas** guarda ideias de cena com uma breve descrição, antes de elas terem um capítulo. Dá para arrastar uma cena de lá para um capítulo e de volta. Quando um capítulo é apagado, as cenas dele também vão para lá.
 - **Fios narrativos**: mistérios, promessas, conflitos, acontecimentos e objetos importantes que a história abriu.
   - Cada fio fica ligado à cena e ao capítulo onde surgiu. Se a cena muda de capítulo, o fio vai junto.
   - Um fio pode ser marcado como resolvido, com a cena e o modo, ou como abandonado de propósito, com o motivo. Também pode ser reaberto.

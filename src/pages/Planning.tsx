@@ -22,6 +22,7 @@ import {
 import {
   arrayMove,
   horizontalListSortingStrategy,
+  rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
@@ -104,8 +105,7 @@ export function Planning() {
   // A click that ends a drag should not open the card.
   const lastDrop = useRef(0);
 
-  const keys = [NO_CHAPTER, ...order];
-  const shown = current !== undefined && keys.includes(current) ? current : (openScene?.chapterId ?? order[0] ?? NO_CHAPTER);
+  const shown = current !== undefined && order.includes(current) ? current : (openScene?.chapterId || order[0]);
 
   // Following a link to a scene shows its chapter on the phone.
   useEffect(() => {
@@ -231,17 +231,18 @@ export function Planning() {
         </div>
         <p className="page-intro">
           Cada capítulo é uma coluna e cada cena é um cartão. Arraste os cartões para mudar a ordem ou o capítulo
-          {narrow ? '' : ', e as colunas para reordenar os capítulos'}.
+          {narrow ? '' : ', e as colunas para reordenar os capítulos'}. Abaixo, em Cenas, ficam as ideias que ainda não
+          têm capítulo.
         </p>
       </div>
 
       {narrow && (
         <ChapterTabs
-          keys={keys}
+          keys={order}
           chapters={chapters}
           current={shown}
           onPick={setCurrent}
-          counts={Object.fromEntries(keys.map((k) => [k, columns[k]?.length ?? 0]))}
+          counts={Object.fromEntries(order.map((k) => [k, columns[k]?.length ?? 0]))}
         />
       )}
 
@@ -264,7 +265,6 @@ export function Planning() {
         }}
       >
         <div className={`board ${narrow ? 'is-single' : ''}`}>
-          <SceneBank hidden={narrow && shown !== NO_CHAPTER} {...columnProps(NO_CHAPTER)} />
           <SortableContext items={order.map(colId)} strategy={horizontalListSortingStrategy}>
             {order.map((id) => {
               const chapter = chapters.find((c) => c.id === id);
@@ -291,6 +291,15 @@ export function Planning() {
           )}
         </div>
 
+        {narrow && (
+          <button className="btn btn-dashed planning-new-chapter" onClick={newChapter}>
+            <Icon name="plus" size={16} />
+            Novo capítulo
+          </button>
+        )}
+
+        <SceneBank {...columnProps(NO_CHAPTER)} />
+
         <DragOverlay>
           {activeScene && <SceneCard scene={activeScene} overlay />}
           {activeChapter && (
@@ -300,13 +309,6 @@ export function Planning() {
           )}
         </DragOverlay>
       </DndContext>
-
-      {narrow && (
-        <button className="btn btn-dashed planning-new-chapter" onClick={newChapter}>
-          <Icon name="plus" size={16} />
-          Novo capítulo
-        </button>
-      )}
 
       {openScene && <SceneDialog key={openScene.id} scene={openScene} onClose={() => showScene()} />}
       {narratorFor && <ChapterNarratorDialog chapter={narratorFor} onClose={() => setNarratorFor(undefined)} />}
@@ -320,11 +322,11 @@ type ColumnBodyProps = {
   onNewScene: () => void;
 };
 
-function ColumnBody({ sceneIds, renderCard, onNewScene, label }: ColumnBodyProps & { label: string }) {
+function ColumnBody({ sceneIds, renderCard, onNewScene, label, grid }: ColumnBodyProps & { label: string; grid?: boolean }) {
   return (
     <>
-      <SortableContext items={sceneIds} strategy={verticalListSortingStrategy}>
-        <ol className="column-cards" aria-label={`Cenas de ${label}`}>
+      <SortableContext items={sceneIds} strategy={grid ? rectSortingStrategy : verticalListSortingStrategy}>
+        <ol className={grid ? 'bank-cards' : 'column-cards'} aria-label={label}>
           {sceneIds.map(renderCard)}
         </ol>
       </SortableContext>
@@ -375,7 +377,7 @@ function SortableColumn({ chapter, hidden, draggable, narrator, openThreads, onN
           )
         }
       />
-      <ColumnBody {...body} label={name} />
+      <ColumnBody {...body} label={`Cenas de ${name}`} />
     </section>
   );
 }
@@ -411,17 +413,16 @@ function ColumnHeading({ chapter, narrator, count, openThreads, onNarrator, hand
   );
 }
 
-/** Scenes kept outside the chapters: ideas waiting for a place, and scenes of deleted chapters. */
-function SceneBank({ hidden, ...body }: ColumnBodyProps & { hidden: boolean }) {
-  const { setNodeRef } = useDroppable({ id: colId(NO_CHAPTER), data: { type: 'column', fixed: true } });
+/** Below the board: scenes kept outside the chapters, ideas waiting for a place and scenes of deleted chapters. */
+function SceneBank(body: ColumnBodyProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: colId(NO_CHAPTER), data: { type: 'column', fixed: true } });
   return (
-    <section ref={setNodeRef} className={`column is-bank ${hidden ? 'is-hidden' : ''}`} aria-label="Cenas">
-      <header className="column-head">
-        <span className="eyebrow">Sem capítulo</span>
-        <span className="column-title">Cenas</span>
-        <p className="column-desc">Caso você tenha uma cena em mente, faça uma breve descrição e guarde-a aqui.</p>
+    <section ref={setNodeRef} className={`scene-bank ${isOver ? 'is-over' : ''}`} aria-labelledby="scene-bank-title">
+      <header className="scene-bank-head">
+        <h2 id="scene-bank-title">Cenas</h2>
+        <p>Caso você tenha uma cena em mente, faça uma breve descrição e guarde-a aqui.</p>
       </header>
-      <ColumnBody {...body} label="Cenas" />
+      <ColumnBody {...body} label="Cenas guardadas" grid />
     </section>
   );
 }

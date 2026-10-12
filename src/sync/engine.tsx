@@ -402,9 +402,39 @@ export async function startSync() {
   window.addEventListener('offline', () => state.linked && setState({ status: 'offline' }));
   document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && syncNow());
 
+  await verifyEmailLink();
   const { data } = await supabase.auth.getSession();
   await handleSession(data.session ?? latestSession);
   await reportAuthError();
+}
+
+/** Takes the ?token_hash=...&type=... params out of the address bar. */
+function takeParams(names: string[]) {
+  const url = new URL(window.location.href);
+  const values = names.map((name) => url.searchParams.get(name));
+  if (values.every((v) => v === null)) return values;
+  for (const name of names) url.searchParams.delete(name);
+  window.history.replaceState(window.history.state, '', url.toString());
+  return values;
+}
+
+/**
+ * The e-mail templates link to ?token_hash=...&type=email|recovery (see
+ * supabase/emails). Unlike ?code=, it works in any browser, so an account
+ * created on the computer can be confirmed from the phone.
+ */
+async function verifyEmailLink() {
+  const [tokenHash, type] = takeParams(['token_hash', 'type']);
+  if (!tokenHash || (type !== 'email' && type !== 'recovery')) return;
+  const { error } = await supabase!.auth.verifyOtp({ token_hash: tokenHash, type });
+  if (error) {
+    await tell({
+      title: 'Não foi possível usar este link',
+      message: type === 'recovery'
+        ? 'Este link expirou ou já foi usado. Peça um novo em “Esqueci a senha” e abra o mais recente.'
+        : 'Este link expirou ou já foi usado. Se você já confirmou a conta, é só entrar com seu e-mail e senha.',
+    });
+  }
 }
 
 /**
@@ -416,28 +446,19 @@ async function reportAuthError() {
   const hash = url.hash.startsWith('#error') ? new URLSearchParams(url.hash.slice(1)) : null;
   const params = hash ?? url.searchParams;
   const code = params.get('error_code') ?? params.get('error');
-  const link = url.searchParams.get('link');
-  // Supabase only exchanges ?code= in the browser that asked for it; one still
-  // here means the e-mail was opened elsewhere (often the phone).
-  const elsewhere = url.searchParams.has('code');
-  if (!code && !link && !elsewhere) return;
-  for (const name of ['error', 'error_code', 'error_description', 'link', 'code']) url.searchParams.delete(name);
+  // A ?code= still here was not exchanged: it was opened in another browser.
+  const leftover = url.searchParams.has('code');
+  if (!code && !leftover) return;
+  for (const name of ['error', 'error_code', 'error_description', 'code']) url.searchParams.delete(name);
   if (hash) url.hash = '';
   window.history.replaceState(window.history.state, '', url.toString());
 
   if (!code) {
-    if (!elsewhere) return;
-    if (link === 'confirmar') {
-      return tell({ title: 'Conta confirmada', message: 'Seu e-mail está confirmado. Agora é só entrar com seu e-mail e senha.' });
-    }
     return tell({
-      title: 'Abra o link no mesmo navegador',
-      message: link === 'senha'
-        ? 'Por segurança, o link para criar uma senha nova só funciona no navegador em que você o pediu. Abra-o lá, ou peça um novo aqui.'
-        : 'Este link só funciona no navegador em que foi pedido. Se era a confirmação da conta, ela já está confirmada: entre com seu e-mail e senha.',
+      title: 'Entre de novo',
+      message: 'Não deu para concluir a entrada por este link. Se ele era a confirmação da conta, ela já está confirmada: é só entrar.',
     });
   }
-
   if (code === 'access_denied') return; // cancelled on Google's screen
   await tell({
     title: 'Não foi possível entrar',

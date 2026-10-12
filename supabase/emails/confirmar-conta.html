@@ -6,7 +6,7 @@
     <p style="margin:0 0 16px;font-size:17px;line-height:1.55">Que bom ter você por aqui.</p>
     <p style="margin:0 0 24px;font-size:17px;line-height:1.55">Falta só confirmar seu e-mail. Depois disso, suas histórias ficam guardadas na sua conta e abrem em qualquer aparelho.</p>
     <p style="margin:0 0 28px">
-      <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#2f4a3f;color:#fbf9f4;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:15px;padding:13px 22px;border-radius:10px">Confirmar meu e-mail</a>
+      <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email" style="display:inline-block;background:#2f4a3f;color:#fbf9f4;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:15px;padding:13px 22px;border-radius:10px">Confirmar meu e-mail</a>
     </p>
     <p style="margin:0;font-size:14px;line-height:1.5;color:#6b6559">Se não foi você que criou esta conta, pode ignorar este e-mail.</p>
   </div>

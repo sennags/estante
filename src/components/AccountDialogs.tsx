@@ -67,14 +67,14 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
         if (error) return setError(authMessage(error));
         onClose();
       } else if (mode === 'criar') {
-        const { data, error } = await supabase.auth.signUp({ email: address, password, options: { emailRedirectTo: appUrl('confirmar') } });
+        const { data, error } = await supabase.auth.signUp({ email: address, password, options: { emailRedirectTo: appUrl() } });
         if (error) return setError(authMessage(error));
         if (data.session) return onClose();
         setSent(`Enviamos um link para ${address}. Abra-o para confirmar a conta e depois entre aqui com seu e-mail e senha.`);
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: appUrl('senha') });
+        const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: appUrl() });
         if (error) return setError(authMessage(error));
-        setSent(`Se houver uma conta com ${address}, chega lá um link para criar uma senha nova. Abra-o neste mesmo navegador.`);
+        setSent(`Se houver uma conta com ${address}, chega lá um link para criar uma senha nova.`);
       }
     } catch (err) {
       setError(authMessage(err as Error));

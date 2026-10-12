@@ -145,8 +145,7 @@ export interface Thread {
   updatedAt: number;
 }
 
-// The database keeps its first name (the app was called Trama): renaming it would orphan saved stories.
-export const db = new Dexie('trama') as Dexie & {
+export const db = new Dexie('lirismo') as Dexie & {
   stories: EntityTable<Story, 'id'>;
   chapters: EntityTable<Chapter, 'id'>;
   versions: EntityTable<ChapterVersion, 'id'>;

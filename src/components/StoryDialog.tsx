@@ -21,8 +21,7 @@ const COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 type Fields = { title: string; synopsis: string; genre: string; coverColor: string; status: StoryStatus };
 type Draft = Fields & { coverImage?: Blob };
 
-// "trama:" is the app's former name, kept so saved drafts are still found.
-const draftKey = (story?: Story) => `trama:rascunho:${story ? story.id : 'nova-historia'}`;
+const draftKey = (story?: Story) => `lirismo:rascunho:${story ? story.id : 'nova-historia'}`;
 const draftImages = new Map<string, Blob | undefined>();
 
 function savedFields(story?: Story): Draft {

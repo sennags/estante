@@ -1,6 +1,6 @@
 // Publishes the built site (npm run build → dist/) as static assets on Cloudflare.
 {
-  "name": "trama",
+  "name": "lirismo",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",

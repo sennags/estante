@@ -3,12 +3,14 @@ import { Library } from './pages/Library';
 import { StoryLayout, StoryIndex } from './pages/StoryLayout';
 import { ChapterEditor } from './pages/ChapterEditor';
 import { Universe } from './pages/Universe';
+import { Trash } from './pages/Trash';
 
 export function App() {
   return (
     <HashRouter>
       <Routes>
         <Route path="/" element={<Library />} />
+        <Route path="/lixeira" element={<Trash />} />
         <Route path="/historia/:storyId" element={<StoryLayout />}>
           <Route index element={<StoryIndex />} />
           <Route path="capitulo/:chapterId" element={<ChapterEditor />} />

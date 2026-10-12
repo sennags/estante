@@ -18,6 +18,8 @@ export interface Story {
   coverColor: string;
   coverImage?: Blob;
   lastChapterId?: string;
+  /** Set while the story sits in the trash. */
+  deletedAt?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -78,6 +80,9 @@ db.version(1).stores({
   versions: 'id, chapterId, createdAt',
   entries: 'id, storyId, kind',
 });
+db.version(2).stores({
+  stories: 'id, status, updatedAt, deletedAt',
+});
 
 export const COVER_COLORS = ['#6E2E2B', '#24344D', '#2F4A3F', '#B88A3B', '#D9CBB0', '#4B3B5C'];
 
@@ -103,6 +108,30 @@ export async function createStory(data: Pick<Story, 'title' | 'synopsis' | 'genr
   return story;
 }
 
+export const TRASH_DAYS = 7;
+const DAY = 24 * 60 * 60 * 1000;
+
+export const isInTrash = (s: Story) => s.deletedAt !== undefined;
+
+/** When a story in the trash will be deleted for good. */
+export const purgeDate = (s: Story) => (s.deletedAt ?? Date.now()) + TRASH_DAYS * DAY;
+
+export async function trashStory(id: string) {
+  await db.stories.update(id, { deletedAt: Date.now() });
+}
+
+export async function restoreStory(id: string) {
+  await db.stories.update(id, { deletedAt: undefined, updatedAt: Date.now() });
+}
+
+/** Deletes for good every story that has been in the trash for a week. */
+export async function purgeTrash() {
+  const limit = Date.now() - TRASH_DAYS * DAY;
+  const expired = (await db.stories.where('deletedAt').below(limit).primaryKeys()) as string[];
+  for (const id of expired) await deleteStory(id);
+}
+
+/** Permanently removes a story with its chapters, versions and entries. */
 export async function deleteStory(id: string) {
   await db.transaction('rw', [db.stories, db.chapters, db.versions, db.entries], async () => {
     const chapterIds = (await db.chapters.where('storyId').equals(id).primaryKeys()) as string[];

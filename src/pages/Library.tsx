@@ -1,22 +1,25 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, STATUS_LABEL, type Story, type StoryStatus } from '../db';
+import { db, isInTrash, STATUS_LABEL, type Story, type StoryStatus } from '../db';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { StoryDialog } from '../components/StoryDialog';
 import { chapterName, formatNumber, plural, relativeTime } from '../lib/text';
 import './Library.css';
+import './Trash.css';
 
 const SHELVES: StoryStatus[] = ['planejamento', 'escrita', 'revisao'];
 
 export function Library() {
-  const stories = useLiveQuery(() => db.stories.orderBy('updatedAt').reverse().toArray(), []);
+  const all = useLiveQuery(() => db.stories.orderBy('updatedAt').reverse().toArray(), []);
   const chapters = useLiveQuery(() => db.chapters.toArray(), []);
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
 
-  if (!stories || !chapters) return null;
+  if (!all || !chapters) return null;
+  const stories = all.filter((s) => !isInTrash(s));
+  const trashed = all.length - stories.length;
 
   const stats = (s: Story) => {
     const own = chapters.filter((c) => c.storyId === s.id);
@@ -44,6 +47,10 @@ export function Library() {
             <span className="sr-only">Buscar histórias</span>
             <input type="search" placeholder="Buscar na estante" value={query} onChange={(e) => setQuery(e.target.value)} />
           </label>
+          <Link to="/lixeira" className="icon-btn trash-link" aria-label={trashed ? `Lixeira, ${trashed} na lixeira` : 'Lixeira'} title="Lixeira">
+            <Icon name="trash" size={20} stroke={1.8} />
+            {trashed > 0 && <span className="trash-count" aria-hidden="true">{trashed}</span>}
+          </Link>
           <button className="btn btn-primary" onClick={() => setCreating(true)}>
             <Icon name="plus" size={16} />
             Nova história

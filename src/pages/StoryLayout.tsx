@@ -30,7 +30,7 @@ export function StoryLayout() {
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
   if (story === null || !chapters) return null;
-  if (!story) return <Navigate to="/" replace />;
+  if (!story || story.deletedAt) return <Navigate to="/" replace />;
 
   return (
     <Ctx.Provider value={{ story, chapters, focus, setFocus, openMenu: () => setMenuOpen(true) }}>

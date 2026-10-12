@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COVER_COLORS, createStory, db, deleteStory, STATUS_LABEL, type Story, type StoryStatus } from '../db';
+import { COVER_COLORS, createStory, db, STATUS_LABEL, TRASH_DAYS, trashStory, type Story, type StoryStatus } from '../db';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -14,65 +14,89 @@ const MAX_COVER_BYTES = 5 * 1024 * 1024;
 const COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
- * Unfinished "new story" form. Closing the dialog keeps it, so clicking
- * outside by accident loses nothing. Text survives a reload (localStorage);
- * the cover image only lives for this tab.
+ * Unsaved form contents. Closing the dialog keeps them, for a new story and
+ * for edits to an existing one, until the user saves or clears them. Text
+ * survives a reload (localStorage); a picked image only lives for this tab.
  */
-type Draft = { title: string; synopsis: string; genre: string; coverColor: string };
-const DRAFT_KEY = 'trama:rascunho-historia';
-let draftImage: Blob | undefined;
+type Fields = { title: string; synopsis: string; genre: string; coverColor: string; status: StoryStatus };
+type Draft = Fields & { coverImage?: Blob };
 
-function loadDraft(): Draft {
-  const empty = { title: '', synopsis: '', genre: '', coverColor: COVER_COLORS[0] };
-  try {
-    return { ...empty, ...JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}') };
-  } catch {
-    return empty;
-  }
+const draftKey = (story?: Story) => `trama:rascunho:${story ? story.id : 'nova-historia'}`;
+const draftImages = new Map<string, Blob | undefined>();
+
+function savedFields(story?: Story): Draft {
+  if (!story) return { title: '', synopsis: '', genre: '', coverColor: COVER_COLORS[0], status: 'planejamento' };
+  const { title, synopsis, genre, coverColor, status, coverImage } = story;
+  return { title, synopsis, genre, coverColor, status, coverImage };
 }
 
-function storeDraft(draft: Draft, image?: Blob) {
-  draftImage = image;
+function loadDraft(story?: Story): Draft | null {
+  const key = draftKey(story);
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    const raw = localStorage.getItem(key);
+    if (raw) return { ...savedFields(story), ...JSON.parse(raw), coverImage: draftImages.has(key) ? draftImages.get(key) : story?.coverImage };
+  } catch {
+    // Unreadable storage: fall through.
+  }
+  return draftImages.has(key) ? { ...savedFields(story), coverImage: draftImages.get(key) } : null;
+}
+
+function storeDraft(story: Story | undefined, draft: Draft) {
+  const key = draftKey(story);
+  const { coverImage, ...fields } = draft;
+  draftImages.set(key, coverImage);
+  try {
+    localStorage.setItem(key, JSON.stringify(fields));
   } catch {
     // Storage blocked: the draft still lasts while the tab is open.
   }
 }
 
-function clearDraft() {
-  draftImage = undefined;
+function clearDraft(story?: Story) {
+  const key = draftKey(story);
+  draftImages.delete(key);
   try {
-    localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(key);
   } catch {
     // Nothing stored.
   }
 }
 
+function differs(a: Draft, b: Draft) {
+  return (Object.keys(a) as (keyof Draft)[]).some((k) => a[k] !== b[k]) || a.coverImage !== b.coverImage;
+}
+
 /** Creates a new story, or edits one when `story` is given. */
 export function StoryDialog({ story, onClose }: Props) {
   const navigate = useNavigate();
-  const [initial] = useState(() => story ?? { ...loadDraft(), coverImage: draftImage });
-  const [title, setTitle] = useState(initial.title);
-  const [synopsis, setSynopsis] = useState(initial.synopsis);
-  const [genre, setGenre] = useState(initial.genre);
-  const [status, setStatus] = useState<StoryStatus>(story?.status ?? 'planejamento');
-  const [coverColor, setCoverColor] = useState(initial.coverColor);
-  const [coverImage, setCoverImage] = useState<Blob | undefined>(initial.coverImage);
+  const [saved] = useState(() => savedFields(story));
+  const [restored] = useState(() => loadDraft(story));
+  const [form, setForm] = useState<Draft>(() => restored ?? saved);
   const [error, setError] = useState('');
+  const [confirmTrash, setConfirmTrash] = useState(false);
 
-  const hasDraft = !story && !!(title || synopsis || genre || coverImage);
+  const changed = differs(form, saved);
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setForm((f) => ({ ...f, [key]: value }));
 
+  // Keep unsaved changes around; forget the draft once it matches what's saved.
   useEffect(() => {
-    if (!story) storeDraft({ title, synopsis, genre, coverColor }, coverImage);
-  }, [story, title, synopsis, genre, coverColor, coverImage]);
+    if (changed) storeDraft(story, form);
+    else clearDraft(story);
+  }, [story, form, changed]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return setError('Dê um título para a história.');
-    const data = { title: title.trim(), synopsis: synopsis.trim(), genre: genre.trim(), coverColor, coverImage };
+    if (!form.title.trim()) return setError('Dê um título para a história.');
+    const data = {
+      title: form.title.trim(),
+      synopsis: form.synopsis.trim(),
+      genre: form.genre.trim(),
+      coverColor: form.coverColor,
+      coverImage: form.coverImage,
+    };
     if (story) {
-      await db.stories.update(story.id, { ...data, status, updatedAt: Date.now() });
+      await db.stories.update(story.id, { ...data, status: form.status, updatedAt: Date.now() });
+      clearDraft(story);
       onClose();
     } else {
       const created = await createStory(data);
@@ -81,19 +105,16 @@ export function StoryDialog({ story, onClose }: Props) {
     }
   }
 
-  function discardDraft() {
-    setTitle('');
-    setSynopsis('');
-    setGenre('');
-    setCoverColor(COVER_COLORS[0]);
-    setCoverImage(undefined);
+  function discard() {
+    clearDraft(story);
+    setForm(saved);
     setError('');
   }
 
-  async function remove() {
+  async function moveToTrash() {
     if (!story) return;
-    if (!confirm(`Apagar "${story.title}" com todos os capítulos e fichas? Isso não pode ser desfeito.`)) return;
-    await deleteStory(story.id);
+    clearDraft(story);
+    await trashStory(story.id);
     navigate('/');
   }
 
@@ -102,29 +123,53 @@ export function StoryDialog({ story, onClose }: Props) {
     if (!COVER_TYPES.includes(file.type)) return setError('Use uma imagem JPG, PNG ou WebP.');
     if (file.size > MAX_COVER_BYTES) return setError('A imagem precisa ter até 5 MB.');
     setError('');
-    setCoverImage(file);
+    set('coverImage', file);
+  }
+
+  if (confirmTrash && story) {
+    return (
+      <Modal title="Mover para a lixeira?" onClose={() => setConfirmTrash(false)} locked>
+        <p style={{ margin: 0, fontSize: 17, lineHeight: 1.55 }}>
+          Talvez você e <strong style={{ fontWeight: 600 }}>{story.title}</strong> só precisem de um tempo… Ela vai esperar na
+          lixeira por {TRASH_DAYS} dias, e depois disso some de vez.
+        </p>
+        <div className="dialog-actions">
+          <button type="button" className="btn btn-ghost" onClick={() => setConfirmTrash(false)}>Cancelar</button>
+          <button type="button" className="btn btn-dark" onClick={moveToTrash}>
+            <Icon name="trash" size={16} />
+            Mover para a lixeira
+          </button>
+        </div>
+      </Modal>
+    );
   }
 
   return (
-    <Modal title={story ? 'Detalhes da história' : 'Nova história'} onClose={onClose}>
+    <Modal title={story ? 'Detalhes da história' : 'Nova história'} onClose={onClose} locked>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {restored && changed && (
+          <p className="draft-note">
+            {story ? 'Recuperamos as alterações que você não salvou.' : 'Recuperamos o rascunho que você começou.'}
+          </p>
+        )}
+
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          <Cover story={{ title, genre, coverColor, coverImage }} size="md" />
+          <Cover story={form} size="md" />
           <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <label className="field">
               <span>Título</span>
-              <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input className="input" value={form.title} onChange={(e) => set('title', e.target.value)} />
             </label>
             <label className="field">
               <span>Gênero</span>
-              <input className="input" value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Romance, fantasia, contos…" />
+              <input className="input" value={form.genre} onChange={(e) => set('genre', e.target.value)} placeholder="Romance, fantasia, contos…" />
             </label>
           </div>
         </div>
 
         <label className="field">
           <span>Sinopse</span>
-          <textarea className="textarea" value={synopsis} onChange={(e) => setSynopsis(e.target.value)} rows={3} />
+          <textarea className="textarea" value={form.synopsis} onChange={(e) => set('synopsis', e.target.value)} rows={3} />
         </label>
 
         <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
@@ -136,17 +181,14 @@ export function StoryDialog({ story, onClose }: Props) {
                 type="button"
                 className="swatch"
                 aria-label={`Cor ${c}`}
-                aria-pressed={!coverImage && c === coverColor}
-                onClick={() => {
-                  setCoverColor(c);
-                  setCoverImage(undefined);
-                }}
+                aria-pressed={!form.coverImage && c === form.coverColor}
+                onClick={() => setForm((f) => ({ ...f, coverColor: c, coverImage: undefined }))}
                 style={{ background: c }}
               />
             ))}
             <label className="btn btn-outline" style={{ minHeight: 40 }} aria-describedby="cover-hint">
               <Icon name="image" size={16} />
-              {coverImage ? 'Trocar imagem' : 'Usar imagem'}
+              {form.coverImage ? 'Trocar imagem' : 'Usar imagem'}
               <input type="file" accept={COVER_TYPES.join(',')} className="sr-only" onChange={(e) => pickImage(e.target.files?.[0])} />
             </label>
             <span id="cover-hint" className="cover-hint">
@@ -162,7 +204,7 @@ export function StoryDialog({ story, onClose }: Props) {
         {story && (
           <label className="field">
             <span>Fase</span>
-            <select className="select" value={status} onChange={(e) => setStatus(e.target.value as StoryStatus)}>
+            <select className="select" value={form.status} onChange={(e) => set('status', e.target.value as StoryStatus)}>
               {Object.entries(STATUS_LABEL).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
@@ -173,18 +215,18 @@ export function StoryDialog({ story, onClose }: Props) {
         {error && <p role="alert" style={{ margin: 0, color: 'var(--danger)' }}>{error}</p>}
 
         <div className="dialog-actions">
-          {story && (
-            <button type="button" className="btn btn-danger" style={{ marginRight: 'auto' }} onClick={remove}>
+          {story && !changed && (
+            <button type="button" className="btn btn-danger" style={{ marginRight: 'auto' }} onClick={() => setConfirmTrash(true)}>
               <Icon name="trash" size={16} />
-              Apagar história
+              Mover para a lixeira
             </button>
           )}
-          {hasDraft && (
-            <button type="button" className="btn btn-ghost" style={{ marginRight: 'auto' }} onClick={discardDraft}>
-              Limpar campos
+          {changed && (
+            <button type="button" className="btn btn-ghost" style={{ marginRight: 'auto' }} onClick={discard}>
+              {story ? 'Descartar alterações' : 'Limpar campos'}
             </button>
           )}
-          <button type="button" className="btn btn-ghost" onClick={onClose}>{story ? 'Cancelar' : 'Fechar'}</button>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
           <button type="submit" className="btn btn-primary">{story ? 'Salvar' : 'Criar e começar'}</button>
         </div>
       </form>

@@ -284,3 +284,12 @@ a {
   color: var(--ink-4);
   padding-left: 4px;
 }
+
+.draft-note {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--brass-soft);
+  color: #6b4614;
+  font-size: 14px;
+}

@@ -147,6 +147,11 @@ export function Library() {
         {q && visible.length === 0 && <p className="empty">Nenhuma história encontrada para “{query}”.</p>}
       </main>
 
+      <footer className="library-footer">
+        <a href="privacidade.html">Política de Privacidade</a>
+        <a href="termos.html">Termos de Serviço</a>
+      </footer>
+
       {creating && <StoryDialog onClose={() => setCreating(false)} />}
     </div>
   );

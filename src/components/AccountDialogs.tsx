@@ -150,6 +150,14 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
           </>
         )}
 
+        {mode !== 'esqueci' && (
+          <p className="account-legal">
+            Ao entrar ou criar uma conta, você concorda com os{' '}
+            <a href="termos.html" target="_blank" rel="noopener">Termos de Serviço</a> e a{' '}
+            <a href="privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a>.
+          </p>
+        )}
+
         <p className="account-switch">
           {mode === 'entrar' ? (
             <>Ainda não tem conta? <button type="button" className="link-btn" onClick={() => go('criar')}>Criar conta</button></>

@@ -59,6 +59,19 @@
   padding: 48px clamp(16px, 5vw, 72px) 96px;
 }
 
+.library-footer {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 0 16px 32px;
+  font-family: var(--sans);
+  font-size: 13px;
+}
+
+.library-footer a {
+  color: var(--ink-4);
+}
+
 .welcome {
   padding: 56px 24px;
   text-align: center;

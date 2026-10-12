@@ -1,0 +1,308 @@
+.library {
+  min-height: 100dvh;
+}
+
+.library-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px clamp(16px, 5vw, 72px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-name {
+  font-family: var(--serif-display);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.library-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-4);
+  min-width: 220px;
+}
+.search input {
+  border: 0;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  color: var(--ink);
+}
+.search:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.library-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px clamp(16px, 5vw, 72px) 96px;
+}
+
+.welcome {
+  padding: 56px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.welcome h1 {
+  font-size: 36px;
+}
+.welcome p {
+  margin: 0 0 12px;
+  max-width: 440px;
+  color: var(--ink-3);
+}
+
+/* Continue card */
+.continue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 28px;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+}
+.continue-text {
+  flex: 1 1 280px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.continue-text h1 {
+  font-size: 36px;
+  line-height: 1.1;
+}
+.continue-text p {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* Covers */
+.cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: none;
+  border-radius: 3px 6px 6px 3px;
+  box-shadow: inset 7px 0 0 rgba(0, 0, 0, 0.16), 0 10px 20px -12px rgba(40, 30, 20, 0.6);
+  overflow: hidden;
+}
+.cover-md {
+  width: 132px;
+  height: 190px;
+  padding: 16px 14px 14px 22px;
+}
+.cover-sm {
+  width: 96px;
+  height: 140px;
+  padding: 12px 10px 10px 16px;
+}
+.cover-lg {
+  width: 168px;
+  height: 242px;
+  padding: 20px 16px 16px 26px;
+}
+.cover-title {
+  font-family: var(--serif-display);
+  font-size: 19px;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+.cover-sm .cover-title {
+  font-size: 15px;
+}
+.cover-genre {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+/* Shelves */
+.shelf {
+  margin-top: 56px;
+}
+.shelf-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.shelf-head h2 {
+  font-size: 26px;
+}
+.shelf-head span {
+  color: var(--ink-4);
+  font-size: 14px;
+}
+.shelf-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 28px 28px;
+  padding: 0 20px;
+}
+/* Each book stands on its own piece of board; neighbours join into one shelf. */
+.book-stand {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 12px;
+}
+.book-stand::after {
+  content: '';
+  position: absolute;
+  left: -15px;
+  right: -15px;
+  bottom: 0;
+  height: 12px;
+  background: var(--shelf);
+  box-shadow: 0 1px 0 var(--shelf-edge), 0 12px 18px -10px rgba(70, 50, 25, 0.45);
+  z-index: 0;
+}
+.book-stand > * {
+  position: relative;
+  z-index: 1;
+}
+
+.book {
+  width: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 6px;
+}
+.book .cover {
+  transition: transform 0.15s ease;
+}
+.book:hover .cover {
+  transform: translateY(-4px);
+}
+.book-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.book-title {
+  font-weight: 500;
+  font-size: 14px;
+}
+.book-sub {
+  font-size: 13px;
+  color: var(--ink-4);
+}
+
+.book-new {
+  width: 132px;
+  height: 190px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-4);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.book-new:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  .library-header {
+    padding: 16px;
+  }
+  .library-actions {
+    width: 100%;
+  }
+  .search {
+    flex: 1;
+    min-width: 0;
+  }
+  .library-actions .btn {
+    padding: 0 14px;
+  }
+  .library-main {
+    padding: 20px 16px 64px;
+  }
+  .continue {
+    padding: 16px;
+    gap: 16px;
+  }
+  .continue .btn {
+    width: 100%;
+  }
+  .continue-text h1 {
+    font-size: 26px;
+  }
+  .shelf {
+    margin-top: 36px;
+  }
+  .shelf-head h2 {
+    font-size: 21px;
+  }
+  .shelf-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0 4px 4px;
+    gap: 16px;
+    scroll-snap-type: x proximity;
+  }
+  .book-stand::after {
+    left: -9px;
+    right: -9px;
+  }
+  .book,
+  .book-new {
+    width: 96px;
+    flex: none;
+    scroll-snap-align: start;
+  }
+  .book .cover {
+    width: 96px;
+    height: 138px;
+    padding: 12px 10px 10px 16px;
+  }
+  .book .cover-title {
+    font-size: 14px;
+  }
+  .book-new {
+    height: 138px;
+  }
+  .book-sub {
+    font-size: 12px;
+  }
+}

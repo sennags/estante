@@ -5,6 +5,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { db, saveChapterContent, type Chapter } from '../db';
 import { Pagination, type PageLayout } from '../editor/pagination';
 import { contentExtensions } from '../editor/extensions';
+import { Dashes } from '../editor/dashes';
 import { bookPages } from '../editor/layout';
 import { Icon } from '../components/Icon';
 import { ReferencePanel } from '../components/ReferencePanel';
@@ -67,6 +68,7 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
   const editor = useEditor({
     extensions: [
       ...contentExtensions(),
+      Dashes,
       Placeholder.configure({ placeholder: 'Comece a escrever…' }),
       Pagination.configure({
         getFirstPage: () => firstPageRef.current,

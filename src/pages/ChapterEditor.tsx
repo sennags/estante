@@ -120,6 +120,22 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
     };
   }, []);
 
+  // A newer text of this chapter came from another device: show it, unless something typed here is still unsaved.
+  useEffect(() => {
+    const onRemote = async (e: Event) => {
+      if (!(e as CustomEvent<{ chapters: string[] }>).detail.chapters.includes(chapter.id)) return;
+      const fresh = await db.chapters.get(chapter.id);
+      if (!fresh || !editor || editor.isDestroyed || pendingSave.current) return;
+      Object.assign(chapter, fresh);
+      latest.current = fresh.content;
+      editor.commands.setContent(fresh.content, { emitUpdate: false });
+      setTitle(fresh.title);
+      setWords(fresh.wordCount);
+    };
+    window.addEventListener('lirismo:remote', onRemote);
+    return () => window.removeEventListener('lirismo:remote', onRemote);
+  }, [chapter, editor]);
+
   // Keep the stored page count (in the book format) in sync so later chapters number correctly.
   useEffect(() => {
     if (!layout || !editor || editor.isDestroyed) return;

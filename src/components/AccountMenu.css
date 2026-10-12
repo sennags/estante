@@ -1,0 +1,136 @@
+/* Account button and menu (library header) */
+.account {
+  position: relative;
+}
+.account-btn {
+  position: relative;
+  color: var(--ink-2);
+}
+.account-dot {
+  position: absolute;
+  right: 8px;
+  bottom: 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--ground);
+  background: var(--accent);
+}
+.account-btn.is-syncing .account-dot,
+.account-btn.is-idle .account-dot {
+  background: var(--brass);
+  animation: account-pulse 1.2s ease-in-out infinite;
+}
+.account-btn.is-offline .account-dot {
+  background: var(--ink-5);
+}
+.account-btn.is-error .account-dot {
+  background: var(--danger);
+}
+@keyframes account-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .account-btn .account-dot {
+    animation: none !important;
+  }
+}
+
+.account-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(320px, calc(100vw - 32px));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-pop);
+}
+.account-email {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.account-status {
+  margin: 6px 0 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+.account-status.is-error {
+  color: var(--danger);
+}
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Sign-in and password dialogs */
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.account-intro {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 15px;
+}
+.account-hint {
+  font-size: 12px;
+  color: var(--ink-4);
+}
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.account-forgot {
+  align-self: flex-start;
+  min-height: 32px;
+  font-size: 14px;
+  margin-top: -6px;
+}
+.account-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink-4);
+  font-size: 13px;
+}
+.account-or::before,
+.account-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.account-switch {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.account-switch .link-btn {
+  min-height: 32px;
+}
+
+@media (max-width: 640px) {
+  .account-pop {
+    position: fixed;
+    top: 72px;
+    right: 16px;
+  }
+}

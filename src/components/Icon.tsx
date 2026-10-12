@@ -30,6 +30,11 @@ const PATHS = {
   alignLeft: 'M4 6h16 M4 10h10 M4 14h16 M4 18h10',
   alignCenter: 'M4 6h16 M7 10h10 M4 14h16 M7 18h10',
   alignRight: 'M4 6h16 M10 10h10 M4 14h16 M10 18h10',
+  cloud: 'M7 19h10a4.5 4.5 0 0 0 .6-8.96A6 6 0 0 0 6.2 9.6 4.75 4.75 0 0 0 7 19z',
+  cloudOff: 'M7 19h10a4.5 4.5 0 0 0 1.9-.42 M20.6 15.6A4.5 4.5 0 0 0 17.6 10.04 6 6 0 0 0 9.5 5.4 M6.2 9.6A4.75 4.75 0 0 0 7 19 M3 3l18 18',
+  user: 'M19 20v-1a5 5 0 0 0-5-5h-4a5 5 0 0 0-5 5v1 M16 7.5a4 4 0 1 1-8 0a4 4 0 1 1 8 0',
+  logout: 'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3 M10 17l-5-5 5-5 M5 12h11',
+  refresh: 'M20 11a8 8 0 0 0-14.6-4.5L4 8 M4 4v4h4 M4 13a8 8 0 0 0 14.6 4.5L20 16 M20 20v-4h-4',
 } as const;
 
 export type IconName = keyof typeof PATHS;

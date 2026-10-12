@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { JSONContent } from '@tiptap/react';
+import { syncMiddleware } from './sync/middleware';
 
 export type StoryStatus = 'planejamento' | 'escrita' | 'revisao';
 
@@ -173,6 +174,8 @@ db.version(4).upgrade((tx) =>
     if (t.kind === 'pista') t.kind = 'acontecimento';
   }),
 );
+// Notes every change so it can be copied to the account (src/sync).
+db.use(syncMiddleware);
 
 export const COVER_COLORS = ['#6E2E2B', '#24344D', '#2F4A3F', '#B88A3B', '#D9CBB0', '#4B3B5C'];
 

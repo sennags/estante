@@ -6,6 +6,7 @@ import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { Logo } from '../components/Logo';
 import { StoryDialog } from '../components/StoryDialog';
+import { AccountMenu } from '../components/AccountMenu';
 import { chapterName, formatNumber, plural, relativeTime } from '../lib/text';
 import './Library.css';
 import './Trash.css';
@@ -63,6 +64,7 @@ export function Library() {
             <Icon name="plus" size={16} />
             Nova história
           </button>
+          <AccountMenu />
         </div>
       </header>
 

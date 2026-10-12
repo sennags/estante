@@ -3,3 +3,9 @@ dist
 *.local
 .DS_Store
 *.tsbuildinfo
+
+# Chaves e configurações locais (nunca vão para o GitHub)
+.env
+.env.*
+!.env.example
+.wrangler

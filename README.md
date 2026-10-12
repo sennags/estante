@@ -2,6 +2,8 @@
 
 Um lugar para escrever e terminar suas histórias: planejamento, personagens e o texto do livro, tudo junto. Funciona no computador e no celular.
 
+**Use em [lirismo.pages.dev](https://lirismo.pages.dev/)**: é só abrir no navegador, sem instalar nada.
+
 ## O que dá para fazer
 
 - **Estante de histórias**, separadas por fase: planejamento, escrita e revisão. Cada livro tem capa, sinopse e gênero.
@@ -12,21 +14,6 @@ Um lugar para escrever e terminar suas histórias: planejamento, personagens e o
 - **Exportar em PDF** o livro inteiro, com as mesmas páginas que você vê no editor.
 - **Lixeira**: uma história apagada espera 7 dias antes de sumir de vez.
 - **Conta opcional**: sem conta, tudo fica no seu navegador. Com conta, as histórias ficam guardadas na nuvem e abrem em qualquer aparelho, mesmo que você escreva sem internet.
-
-## Para quem vai mexer no código
-
-Precisa de Node 20 ou mais recente.
-
-```bash
-npm install
-npm run dev
-```
-
-Para as contas, copie `.env.example` para `.env.local` e preencha com os dados do projeto no Supabase. O banco é criado com `supabase/schema.sql`. Sem essas variáveis, o app funciona só no navegador.
-
-`npm run build` gera o site em `dist/`.
-
-Feito com React, TypeScript e Vite; os dados ficam no navegador (Dexie) e, com conta, no Supabase.
 
 ## Limitações conhecidas
 

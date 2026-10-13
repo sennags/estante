@@ -45,12 +45,14 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<Mode>('entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [repeat, setRepeat] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
 
   const go = (m: Mode) => {
     setMode(m);
+    setRepeat('');
     setError('');
   };
 
@@ -59,6 +61,7 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
     if (!supabase) return;
     const address = email.trim();
     if (mode !== 'esqueci' && password.length < MIN_PASSWORD) return setError(`A senha precisa ter pelo menos ${MIN_PASSWORD} caracteres.`);
+    if (mode === 'criar' && password !== repeat) return setError('As duas senhas não estão iguais.');
     setBusy(true);
     setError('');
     try {
@@ -156,6 +159,12 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
               onChange={(e) => setPassword(e.target.value)}
             />
             {mode === 'criar' && <small className="account-hint">Pelo menos {MIN_PASSWORD} caracteres.</small>}
+          </label>
+        )}
+        {mode === 'criar' && (
+          <label className="field">
+            <span>Repita a senha</span>
+            <input className="input" type="password" autoComplete="new-password" required value={repeat} onChange={(e) => setRepeat(e.target.value)} />
           </label>
         )}
         {mode === 'entrar' && (

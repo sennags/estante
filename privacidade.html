@@ -76,8 +76,8 @@
 
       <h2>5. O que não fazemos</h2>
       <ul>
-        <li>Não lemos o que você escreve. O acesso ao banco de dados é restrito, e só olharíamos um registro se você pedir ajuda com ele ou se uma ordem judicial exigir.</li>
-        <li>Não mostramos anúncios e não usamos ferramentas de rastreamento ou de análise de comportamento.</li>
+        <li>Não lemos o que você escreve. As histórias guardadas na nuvem não são criptografadas de ponta a ponta, então quem administra o Lirismo tem, tecnicamente, como acessá-las. Por isso o acesso ao banco de dados é restrito, e só olharíamos um registro se você pedir ajuda com ele ou se uma ordem judicial exigir.</li>
+        <li>Não mostramos anúncios e não usamos ferramentas de rastreamento ou de análise de comportamento. Só contamos as visitas ao site, de forma agregada, com o Web Analytics da Cloudflare, que não usa cookies nem identifica quem visita.</li>
         <li>Não vendemos, alugamos nem compartilhamos seus dados para fins de marketing.</li>
         <li>Não usamos seus textos para treinar modelos de inteligência artificial.</li>
       </ul>
@@ -86,19 +86,21 @@
       <p>Para funcionar, o Lirismo usa alguns serviços de terceiros, que tratam os dados apenas para prestar esse serviço:</p>
       <ul>
         <li><strong>Supabase:</strong> guarda a conta, as histórias e as capas. Os servidores ficam em São Paulo.</li>
-        <li><strong>Cloudflare:</strong> hospeda o site.</li>
+        <li><strong>Cloudflare:</strong> hospeda o site, conta as visitas de forma agregada e faz a verificação contra robôs (Turnstile) quando você entra, cria a conta ou pede uma senha nova. Nessa verificação, a Cloudflare analisa dados técnicos do navegador e da conexão, como o endereço IP, só para diferenciar pessoas de robôs.</li>
         <li><strong>Google:</strong> só se você escolher entrar com o Google.</li>
         <li><strong>Resend:</strong> envia os e-mails de confirmação e de nova senha.</li>
       </ul>
       <p>
-        Alguns desses serviços podem processar dados fora do Brasil. Nesses casos, a transferência segue o que a LGPD permite
-        para a execução do serviço contratado por você (art. 33).
+        Alguns desses serviços podem processar dados fora do Brasil, principalmente a Cloudflare, o Google e a Resend, empresas
+        sediadas nos Estados Unidos. Nesses casos, a transferência segue o que a LGPD permite para a execução do serviço
+        contratado por você (art. 33).
       </p>
 
       <h2>7. Cookies e armazenamento no navegador</h2>
       <p>
         O Lirismo não usa cookies de publicidade ou de rastreamento. Ele usa o armazenamento do navegador (IndexedDB e
         localStorage) para guardar suas histórias, rascunhos e a sessão da sua conta. Sem isso, o aplicativo não funciona.
+        A contagem de visitas da Cloudflare não usa cookies nem guarda nada no seu navegador.
       </p>
 
       <h2>8. Por quanto tempo guardamos</h2>
@@ -112,8 +114,10 @@
       <h2>9. Segurança</h2>
       <p>
         A comunicação com o Lirismo é sempre cifrada (HTTPS). No banco de dados, cada conta só consegue ler e alterar os próprios
-        registros, e as capas ficam num espaço acessível apenas ao dono. Nenhum sistema é totalmente imune a falhas; se acontecer
-        um incidente que possa afetar você, avisaremos você e a Autoridade Nacional de Proteção de Dados (ANPD), como manda a lei.
+        registros, e as capas ficam num espaço acessível apenas ao dono. Para barrar robôs, entrar, criar conta e pedir uma senha
+        nova passam pela verificação da Cloudflare, que na maioria das vezes é invisível, e cada conta tem um limite de espaço na
+        nuvem. Nenhum sistema é totalmente imune a falhas; se acontecer um incidente que possa afetar você, avisaremos você e a
+        Autoridade Nacional de Proteção de Dados (ANPD), como manda a lei.
       </p>
       <p>
         Ao sair da conta num computador compartilhado, escolha apagar a cópia deste navegador, para que outras pessoas não vejam

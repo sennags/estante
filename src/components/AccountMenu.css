@@ -24,7 +24,8 @@
 .account-btn.is-offline .account-dot {
   background: var(--ink-5);
 }
-.account-btn.is-error .account-dot {
+.account-btn.is-error .account-dot,
+.account-btn.is-full .account-dot {
   background: var(--danger);
 }
 @keyframes account-pulse {
@@ -63,7 +64,8 @@
   line-height: 1.45;
   color: var(--ink-3);
 }
-.account-status.is-error {
+.account-status.is-error,
+.account-status.is-full {
   color: var(--danger);
 }
 .account-actions {

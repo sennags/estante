@@ -15,6 +15,8 @@ function statusText(a: AccountState): string {
         : 'Sem internet. O que você escrever fica guardado aqui e sobe quando a conexão voltar.';
     case 'error':
       return 'Não foi possível sincronizar agora. Tentamos de novo em um minuto.';
+    case 'full':
+      return 'A nuvem da sua conta está cheia: as mudanças novas ficam só neste aparelho. Apagar versões antigas libera espaço.';
     case 'synced':
       return a.pending ? `${pendingLabel(a.pending)}.` : `Tudo salvo na nuvem${a.lastSync ? `, ${relativeTime(a.lastSync)}` : ''}.`;
     default:
@@ -56,7 +58,7 @@ export function AccountMenu() {
     );
   }
 
-  const trouble = account.status === 'offline' || account.status === 'error';
+  const trouble = account.status === 'offline' || account.status === 'error' || account.status === 'full';
   return (
     <div className="account" ref={ref}>
       <button

@@ -44,10 +44,72 @@ drop trigger if exists records_rev on records;
 create trigger records_rev before insert or update on records
   for each row execute function records_next_rev();
 
+-- Limites por conta, para uma conta sozinha não encher o banco (o plano grátis
+-- tem 500 MB). Quem passa do limite recebe o erro 'lirismo_quota', e o app
+-- avisa que a nuvem da conta está cheia. Apagar e encolher passam sempre, para
+-- quem está cheio conseguir liberar espaço. A maior parte do espaço é das
+-- versões dos capítulos (até 50 por capítulo); um romance de 25 capítulos com
+-- todas as versões ocupa de 10 a 20 MB. Para mudar os limites, troque os
+-- números e rode de novo.
+alter table records drop constraint if exists records_id_len;
+alter table records add constraint records_id_len check (length(id) <= 64);
+alter table records drop constraint if exists records_data_size;
+alter table records add constraint records_data_size check (pg_column_size(data) <= 5 * 1024 * 1024);
+
+create or replace function records_quota() returns trigger
+language plpgsql set search_path = public as $$
+declare
+  added_rows bigint := 0;
+  added_bytes bigint;
+  total_rows bigint;
+  total_bytes bigint;
+begin
+  -- Sem usuário (painel do Supabase, service_role): sem limite.
+  if auth.uid() is null then return null; end if;
+  if tg_op = 'INSERT' then
+    select count(*), coalesce(sum(pg_column_size(data)), 0) into added_rows, added_bytes from new_rows;
+  else
+    select coalesce(sum(pg_column_size(data)), 0) into added_bytes from new_rows;
+    added_bytes := added_bytes - (select coalesce(sum(pg_column_size(data)), 0) from old_rows);
+  end if;
+  if added_rows = 0 and added_bytes <= 0 then return null; end if;
+  select count(*), coalesce(sum(pg_column_size(data)), 0) into total_rows, total_bytes
+    from records where user_id = auth.uid();
+  if total_rows > 50000 or total_bytes > 50 * 1024 * 1024 then
+    raise exception 'lirismo_quota' using detail = format('%s registros, %s bytes', total_rows, total_bytes);
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists records_quota_insert on records;
+create trigger records_quota_insert after insert on records
+  referencing new table as new_rows
+  for each statement execute function records_quota();
+drop trigger if exists records_quota_update on records;
+create trigger records_quota_update after update on records
+  referencing old table as old_rows new table as new_rows
+  for each statement execute function records_quota();
+
 -- Capas em imagem: bucket privado, caminho {user_id}/{storyId}.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('covers', 'covers', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
+
+-- No máximo 50 capas por conta (trocar uma capa que já existe passa sempre).
+-- Fica num schema que a API não publica; a regra de "enviar" não pode contar
+-- storage.objects direto, porque daria recursão infinita nas regras da tabela.
+create schema if not exists private;
+grant usage on schema private to authenticated;
+
+create or replace function private.cover_allowed(object_name text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from storage.objects where bucket_id = 'covers' and name = object_name)
+      or (select count(*) from storage.objects
+          where bucket_id = 'covers' and (storage.foldername(name))[1] = (select auth.uid())::text) < 50;
+$$;
+revoke all on function private.cover_allowed(text) from public, anon;
+grant execute on function private.cover_allowed(text) to authenticated;
 
 drop policy if exists "capas do dono: ler" on storage.objects;
 drop policy if exists "capas do dono: enviar" on storage.objects;
@@ -57,7 +119,7 @@ drop policy if exists "capas do dono: apagar" on storage.objects;
 create policy "capas do dono: ler" on storage.objects for select to authenticated
   using (bucket_id = 'covers' and (storage.foldername(name))[1] = (select auth.uid())::text);
 create policy "capas do dono: enviar" on storage.objects for insert to authenticated
-  with check (bucket_id = 'covers' and (storage.foldername(name))[1] = (select auth.uid())::text);
+  with check (bucket_id = 'covers' and (storage.foldername(name))[1] = (select auth.uid())::text and private.cover_allowed(name));
 create policy "capas do dono: trocar" on storage.objects for update to authenticated
   using (bucket_id = 'covers' and (storage.foldername(name))[1] = (select auth.uid())::text);
 create policy "capas do dono: apagar" on storage.objects for delete to authenticated

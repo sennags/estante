@@ -1,0 +1,88 @@
+# Cópia de segurança diária do banco e das capas.
+#
+# A cópia sai criptografada com a chave pública em BACKUP_AGE_RECIPIENT; só quem
+# tem a chave privada consegue abrir. O repositório é público, então os logs não
+# mostram contagens, nomes de arquivo nem caminhos.
+
+name: Backup
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # 3h da manhã em Brasília
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: sa-east-1
+      S3_ENDPOINT: https://sakdxsicqebkvbcysqgp.supabase.co/storage/v1/s3
+    steps:
+      - name: Conferir a configuração
+        run: |
+          missing=0
+          for name in DB_URL AGE_RECIPIENT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Falta configurar $name"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Instalar o pg_dump da versão do servidor e o age
+        run: |
+          set -euo pipefail
+          major=$(psql "$DB_URL" -Atc 'show server_version_num' | cut -c1-2)
+          echo "Postgres $major"
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -qq "postgresql-client-$major" age > /dev/null
+          echo "PG_BIN=/usr/lib/postgresql/$major/bin" >> "$GITHUB_ENV"
+
+      - name: Copiar o banco
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/backup/banco"
+          cd "$RUNNER_TEMP/backup/banco"
+          # Contas primeiro: records aponta para auth.users. Só os dados, com o
+          # nome das colunas, para entrar num projeto novo do Supabase.
+          "$PG_BIN/pg_dump" "$DB_URL" --data-only --column-inserts --no-owner --no-privileges \
+            --table=auth.users --table=auth.identities --file=1-contas.sql
+          # Tabelas, funções, regras e dados do app. O trigger do rev é criado
+          # depois dos dados, então os revs voltam iguais.
+          "$PG_BIN/pg_dump" "$DB_URL" --schema=public --schema=private --no-owner \
+            --file=2-app.sql
+          test -s 1-contas.sql && test -s 2-app.sql
+
+      - name: Copiar as capas
+        run: |
+          set -euo pipefail
+          aws configure set default.s3.addressing_style path
+          mkdir -p "$RUNNER_TEMP/backup/capas"
+          aws s3 sync s3://covers "$RUNNER_TEMP/backup/capas" \
+            --endpoint-url "$S3_ENDPOINT" --only-show-errors
+
+      - name: Criptografar
+        run: |
+          set -euo pipefail
+          stamp=$(date -u +%Y-%m-%d)
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+          tar -C "$RUNNER_TEMP/backup" -cz . | age -r "$AGE_RECIPIENT" > "$RUNNER_TEMP/lirismo-$stamp.tar.gz.age"
+          rm -rf "$RUNNER_TEMP/backup"
+          ls -lh "$RUNNER_TEMP/lirismo-$stamp.tar.gz.age" | awk '{print "Tamanho:", $5}'
+
+      - name: Guardar por 30 dias
+        uses: actions/upload-artifact@v4
+        with:
+          name: lirismo-${{ env.STAMP }}
+          path: ${{ runner.temp }}/lirismo-${{ env.STAMP }}.tar.gz.age
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error

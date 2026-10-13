@@ -26,5 +26,13 @@ export const GOOGLE_LOGIN = !!supabase && import.meta.env.VITE_GOOGLE_LOGIN === 
  */
 export const EMAIL_LOGIN = !!supabase && import.meta.env.VITE_EMAIL_LOGIN === 'true';
 
+/**
+ * VITE_TURNSTILE_SITE_KEY (public) turns on the CAPTCHA for e-mail and
+ * password. Publish with it first, then enable CAPTCHA in Supabase
+ * (Authentication → Attack Protection, with the secret key): the other
+ * order locks everyone out of e-mail sign-in until the next deploy.
+ */
+export const TURNSTILE_SITE_KEY = (EMAIL_LOGIN && (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)) || undefined;
+
 /** Where links from e-mails and Google send the author back to. */
 export const appUrl = () => window.location.origin + window.location.pathname;

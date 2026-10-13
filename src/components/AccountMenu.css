@@ -105,6 +105,14 @@
   font-size: 14px;
   margin-top: -6px;
 }
+/* The CAPTCHA takes no room until Cloudflare asks for a click. */
+.account-captcha {
+  display: flex;
+  justify-content: center;
+}
+.account-captcha:not(.is-visible) {
+  margin-top: -14px;
+}
 .account-or {
   display: flex;
   align-items: center;

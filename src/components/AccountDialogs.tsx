@@ -3,7 +3,8 @@ import type { AuthError } from '@supabase/supabase-js';
 import { Modal } from './Modal';
 import { Icon } from './Icon';
 import { tell } from './Ask';
-import { appUrl, EMAIL_LOGIN, GOOGLE_LOGIN, supabase } from '../sync/supabase';
+import { Turnstile } from './Turnstile';
+import { appUrl, EMAIL_LOGIN, GOOGLE_LOGIN, supabase, TURNSTILE_SITE_KEY } from '../sync/supabase';
 import './AccountMenu.css';
 import { finishRecovery, getAccountState, pendingLabel, signOut, subscribeAccount, unsentChanges } from '../sync/engine';
 
@@ -36,6 +37,8 @@ function authMessage(error: AuthError | Error): string {
     case 'over_email_send_rate_limit':
     case 'over_request_rate_limit':
       return 'Muitas tentativas seguidas. Espere um pouco e tente de novo.';
+    case 'captcha_failed':
+      return 'Não conseguimos confirmar que é você, e não um robô. Tente de novo.';
   }
   if (!navigator.onLine || /fetch|network/i.test(error.message)) return 'Sem conexão com a internet. Tente de novo quando ela voltar.';
   return 'Não deu certo. Tente de novo em instantes.';
@@ -54,6 +57,9 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaAsks, setCaptchaAsks] = useState(false);
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   const go = (m: Mode) => {
     setMode(m);
@@ -67,20 +73,29 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
     const address = email.trim();
     if (mode === 'criar' && password.length < MIN_PASSWORD) return setError(`A senha precisa ter pelo menos ${MIN_PASSWORD} caracteres.`);
     if (mode === 'criar' && password !== repeat) return setError('As duas senhas não estão iguais.');
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      return setError(
+        captchaAsks
+          ? 'Marque a caixa acima para confirmar que é você, e não um robô.'
+          : 'Só um instante: estamos confirmando que é você, e não um robô. Se demorar, recarregue a página.',
+      );
+    }
+    // Without the site key, Supabase does not ask for a token.
+    const captcha = TURNSTILE_SITE_KEY ? captchaToken : undefined;
     setBusy(true);
     setError('');
     try {
       if (mode === 'entrar') {
-        const { error } = await supabase.auth.signInWithPassword({ email: address, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: address, password, options: { captchaToken: captcha } });
         if (error) return setError(authMessage(error));
         onClose();
       } else if (mode === 'criar') {
-        const { data, error } = await supabase.auth.signUp({ email: address, password, options: { emailRedirectTo: appUrl() } });
+        const { data, error } = await supabase.auth.signUp({ email: address, password, options: { emailRedirectTo: appUrl(), captchaToken: captcha } });
         if (error) return setError(authMessage(error));
         if (data.session) return onClose();
         setSent(`Enviamos um link para ${address}. Abra-o para confirmar a conta e depois entre aqui com seu e-mail e senha.`);
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: appUrl() });
+        const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: appUrl(), captchaToken: captcha });
         if (error) return setError(authMessage(error));
         setSent(`Se houver uma conta com ${address}, chega lá um link para criar uma senha nova.`);
       }
@@ -88,6 +103,8 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
       setError(authMessage(err as Error));
     } finally {
       setBusy(false);
+      // Each token works once: get a fresh one for the next attempt.
+      if (TURNSTILE_SITE_KEY) setCaptchaReset((n) => n + 1);
     }
   }
 
@@ -174,6 +191,10 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
         )}
         {mode === 'entrar' && (
           <button type="button" className="link-btn account-forgot" onClick={() => go('esqueci')}>Esqueci a senha</button>
+        )}
+
+        {TURNSTILE_SITE_KEY && (
+          <Turnstile siteKey={TURNSTILE_SITE_KEY} onToken={setCaptchaToken} onAsk={setCaptchaAsks} resetKey={captchaReset} />
         )}
 
         {error && <p role="alert" className="form-error">{error}</p>}

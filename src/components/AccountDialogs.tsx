@@ -5,6 +5,7 @@ import { Icon } from './Icon';
 import { tell } from './Ask';
 import { Turnstile } from './Turnstile';
 import { appUrl, EMAIL_LOGIN, GOOGLE_LOGIN, supabase, TURNSTILE_SITE_KEY } from '../sync/supabase';
+import { isLeakedPassword } from '../lib/leakedPassword';
 import './AccountMenu.css';
 import { finishRecovery, getAccountState, pendingLabel, signOut, subscribeAccount, unsentChanges } from '../sync/engine';
 
@@ -16,6 +17,9 @@ export const useAccount = () => useSyncExternalStore(subscribeAccount, getAccoun
  * when the minimum was 6 keep their passwords.
  */
 const MIN_PASSWORD = 10;
+
+/** Same rule as MIN_PASSWORD: checked on new passwords, never when signing in. */
+const LEAKED_PASSWORD = 'Essa senha já apareceu em vazamentos de dados na internet. Escolha outra.';
 
 /** Supabase's messages, in the app's voice. */
 function authMessage(error: AuthError | Error): string {
@@ -84,6 +88,11 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
     const captcha = TURNSTILE_SITE_KEY ? captchaToken : undefined;
     setBusy(true);
     setError('');
+    // Outside the try: nothing reached Supabase, so the CAPTCHA token is still good.
+    if (mode === 'criar' && (await isLeakedPassword(password))) {
+      setBusy(false);
+      return setError(LEAKED_PASSWORD);
+    }
     try {
       if (mode === 'entrar') {
         const { error } = await supabase.auth.signInWithPassword({ email: address, password, options: { captchaToken: captcha } });
@@ -250,6 +259,11 @@ export function NewPasswordDialog() {
     if (password.length < MIN_PASSWORD) return setError(`A senha precisa ter pelo menos ${MIN_PASSWORD} caracteres.`);
     if (password !== repeat) return setError('As duas senhas não estão iguais.');
     setBusy(true);
+    setError('');
+    if (await isLeakedPassword(password)) {
+      setBusy(false);
+      return setError(LEAKED_PASSWORD);
+    }
     const { error } = await supabase!.auth.updateUser({ password });
     setBusy(false);
     if (error) return setError(authMessage(error));

@@ -1,10 +1,11 @@
 # Cabeçalhos de segurança: a Cloudflare Pages lê este arquivo e os aplica a todas as páginas.
 # A CSP bloqueia o que não estiver na lista: Supabase (conta e capas), Web Analytics da Cloudflare
-# (cloudflareinsights) e Turnstile, o CAPTCHA (challenges.cloudflare.com).
+# (cloudflareinsights), Turnstile, o CAPTCHA (challenges.cloudflare.com), e Have I Been Pwned
+# (api.pwnedpasswords.com), que diz se uma senha nova já apareceu em vazamentos.
 # Se o Web Analytics for desligado, tirar os dois endereços cloudflareinsights.
 /*
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Frame-Options: DENY
   Cross-Origin-Opener-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com https://challenges.cloudflare.com; connect-src 'self' https://sakdxsicqebkvbcysqgp.supabase.co https://cloudflareinsights.com; frame-src https://challenges.cloudflare.com; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com https://challenges.cloudflare.com; connect-src 'self' https://sakdxsicqebkvbcysqgp.supabase.co https://cloudflareinsights.com https://api.pwnedpasswords.com; frame-src https://challenges.cloudflare.com; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'

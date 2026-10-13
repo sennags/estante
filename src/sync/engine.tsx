@@ -347,7 +347,7 @@ async function handleSession(next: Session | null) {
         message: (
           <>
             <p>
-              {count === 1 ? 'Juntar a história deste navegador à sua conta?' : `Juntar as ${count} histórias deste navegador à sua conta?`}
+              {count === 1 ? 'Juntar a história deste aparelho à sua conta?' : `Juntar as ${count} histórias deste aparelho à sua conta?`}
             </p>
             <p>Elas passam a ficar guardadas na nuvem e aparecem nos outros aparelhos em que você entrar. Em “Agora não”, você sai da conta e tudo continua só aqui.</p>
           </>

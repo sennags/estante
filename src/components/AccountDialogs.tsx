@@ -117,7 +117,7 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
       <Modal title="Entrar" onClose={onClose}>
         <div className="account-form">
           <p className="account-intro">
-            Com uma conta, suas histórias ficam guardadas na nuvem e abrem em qualquer aparelho. Sem ela, tudo continua só neste navegador.
+            Com uma conta, suas histórias ficam guardadas na nuvem e abrem em qualquer aparelho. Sem ela, tudo continua só neste aparelho.
           </p>
           {error && <p role="alert" className="form-error">{error}</p>}
           <button type="button" className="btn btn-outline" data-autofocus disabled={busy} onClick={google}>
@@ -137,7 +137,7 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
         <p className="account-intro">
           {mode === 'esqueci'
             ? 'Diga o e-mail da sua conta e enviamos um link para criar uma senha nova.'
-            : 'Com uma conta, suas histórias ficam guardadas na nuvem e abrem em qualquer aparelho. Sem ela, tudo continua só neste navegador.'}
+            : 'Com uma conta, suas histórias ficam guardadas na nuvem e abrem em qualquer aparelho. Sem ela, tudo continua só neste aparelho.'}
         </p>
         <label className="field">
           <span>E-mail</span>
@@ -293,14 +293,14 @@ export function SignOutDialog({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Sair da conta" onClose={onClose}>
       <div className="ask-message">
-        <p>Quer deixar uma cópia das histórias neste navegador?</p>
-        <p>Num computador compartilhado, é melhor apagar: elas continuam guardadas na sua conta.</p>
+        <p>Quer deixar uma cópia das histórias neste aparelho?</p>
+        <p>Num aparelho compartilhado, é melhor apagar: elas continuam guardadas na sua conta.</p>
       </div>
       <div className="dialog-actions">
         <button className="btn btn-ghost" onClick={() => leave(true)}>Manter uma cópia</button>
         <button className="btn btn-dark" data-autofocus onClick={() => leave(false)}>
           <Icon name="logout" size={16} />
-          Apagar deste navegador
+          Apagar deste aparelho
         </button>
       </div>
     </Modal>

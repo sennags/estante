@@ -72,6 +72,7 @@ export function Library() {
         {stories.length === 0 && (
           <section className="welcome">
             <h1>Sua estante está vazia</h1>
+            <p>O Lirismo é um lugar para planejar e escrever suas histórias: capítulos, personagens, cenas e os fios que você não pode esquecer.</p>
             <p>Comece uma história: dê um título, escolha uma capa e vá direto para a primeira folha.</p>
             <button className="btn btn-primary" onClick={() => setCreating(true)}>
               <Icon name="plus" size={16} />

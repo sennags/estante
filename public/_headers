@@ -1,0 +1,9 @@
+# Cabeçalhos de segurança: a Cloudflare Pages lê este arquivo e os aplica a todas as páginas.
+# A CSP está em modo de teste (Report-Only): só avisa no console do navegador, não bloqueia nada.
+# Se o Web Analytics da Cloudflare for desligado, tirar os dois endereços cloudflareinsights.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; connect-src 'self' https://sakdxsicqebkvbcysqgp.supabase.co https://cloudflareinsights.com; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'

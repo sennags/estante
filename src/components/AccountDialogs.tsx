@@ -9,7 +9,12 @@ import { finishRecovery, getAccountState, pendingLabel, signOut, subscribeAccoun
 
 export const useAccount = () => useSyncExternalStore(subscribeAccount, getAccountState);
 
-const MIN_PASSWORD = 6;
+/**
+ * For new passwords only (same value as Supabase → Authentication → Email →
+ * Minimum password length). Signing in never checks it: accounts created
+ * when the minimum was 6 keep their passwords.
+ */
+const MIN_PASSWORD = 10;
 
 /** Supabase's messages, in the app's voice. */
 function authMessage(error: AuthError | Error): string {
@@ -60,7 +65,7 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     if (!supabase) return;
     const address = email.trim();
-    if (mode !== 'esqueci' && password.length < MIN_PASSWORD) return setError(`A senha precisa ter pelo menos ${MIN_PASSWORD} caracteres.`);
+    if (mode === 'criar' && password.length < MIN_PASSWORD) return setError(`A senha precisa ter pelo menos ${MIN_PASSWORD} caracteres.`);
     if (mode === 'criar' && password !== repeat) return setError('As duas senhas não estão iguais.');
     setBusy(true);
     setError('');
@@ -153,7 +158,7 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
               className="input"
               type="password"
               required
-              minLength={MIN_PASSWORD}
+              minLength={mode === 'criar' ? MIN_PASSWORD : undefined}
               autoComplete={mode === 'criar' ? 'new-password' : 'current-password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}

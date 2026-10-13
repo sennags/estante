@@ -37,7 +37,8 @@ const setMeta = (key: string, value: unknown) => syncDb.meta.put({ key, value })
 
 /* ---------- State shown in the interface ---------- */
 
-export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
+/** `full`: the account reached its space limit on the server (see supabase/schema.sql). */
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error' | 'full';
 
 export type AccountState = {
   /** The variables are set, so accounts exist at all. */
@@ -256,6 +257,24 @@ async function pull(fromStart = false) {
 let running: Promise<void> | null = null;
 let again = false;
 let pulledOnce = false;
+let warnedFull = false;
+
+/** The server refuses writes past the account's limit (trigger records_quota). */
+const isQuotaError = (err: unknown) => (err as { message?: unknown } | null)?.message === 'lirismo_quota';
+
+function warnFull() {
+  if (warnedFull) return;
+  warnedFull = true;
+  tell({
+    title: 'A nuvem da sua conta está cheia',
+    message: (
+      <>
+        <p>Suas histórias continuam guardadas neste aparelho, mas as mudanças novas não estão chegando à nuvem nem aos outros aparelhos.</p>
+        <p>Apagar versões antigas dos capítulos libera espaço. Se precisar de mais, escreva para contato@lirismo.com.br.</p>
+      </>
+    ),
+  });
+}
 
 async function syncOnce() {
   if (!supabase || !linkedUser || session?.user.id !== linkedUser) return;
@@ -263,9 +282,17 @@ async function syncOnce() {
   setState({ status: 'syncing' });
   try {
     if (await getMeta<boolean>('merging')) await merge();
-    await push();
+    // A full account still receives what other devices sent.
+    let full = false;
+    try {
+      await push();
+    } catch (err) {
+      if (!isQuotaError(err)) throw err;
+      full = true;
+    }
     await pull();
-    setState({ status: 'synced', lastSync: Date.now(), pending: await syncDb.outbox.count() });
+    setState({ status: full ? 'full' : 'synced', lastSync: Date.now(), pending: await syncDb.outbox.count() });
+    if (full) warnFull();
     if (!pulledOnce) {
       pulledOnce = true;
       purgeTrash();

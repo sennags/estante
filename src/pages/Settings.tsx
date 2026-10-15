@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Navigate, NavLink, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Icon, type IconName } from '../components/Icon';
 import { Avatar } from '../components/Avatar';
@@ -93,12 +93,6 @@ function ProfileSection() {
 
   if (!email || !profile) return <SignInPrompt>Entre na sua conta para ter um perfil com foto e nome. Sem conta, as histórias ficam só neste aparelho.</SignInPrompt>;
 
-  const pick = (kind: ImageKind) => (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (file) setCropping({ kind, file });
-  };
-
   const WHAT: Record<ImageKind, string> = { photo: 'a foto', banner: 'a capa' };
 
   async function apply(kind: ImageKind, file: File, crop: Crop) {
@@ -145,46 +139,44 @@ function ProfileSection() {
   return (
     <>
       <div className="settings-card profile-head">
-        {/* Same look as the account card: the cover, with the photo over its edge. */}
-        <div className="profile-cover" style={banner ? { backgroundImage: `url(${banner})` } : undefined} />
-        <span className="profile-photo">
-          <Avatar profile={profile} email={email} size={88} />
-        </span>
-        <div className="profile-images">
-          <div className="profile-image-row">
-            <span className="field-label">Foto</span>
-            <label className={`btn btn-sm btn-outline ${busy ? 'is-disabled' : ''}`}>
-              <Icon name="camera" size={15} />
-              {busy === 'photo' ? 'Salvando…' : 'Trocar foto'}
-              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={!!busy} onChange={pick('photo')} />
-            </label>
-            {photo && (
-              <button className="link-btn settings-link" disabled={!!busy} onClick={() => drop('photo')}>
-                Tirar a foto
-              </button>
-            )}
-          </div>
-          <div className="profile-image-row">
-            <span className="field-label">Capa</span>
-            <label className={`btn btn-sm btn-outline ${busy ? 'is-disabled' : ''}`}>
-              <Icon name="image" size={15} />
-              {busy === 'banner' ? 'Salvando…' : profile.banner ? 'Trocar capa' : 'Pôr uma capa'}
-              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={!!busy} onChange={pick('banner')} />
-            </label>
-            {profile.banner && (
-              <button className="link-btn settings-link" disabled={!!busy} onClick={() => drop('banner')}>
-                Tirar a capa
-              </button>
-            )}
-          </div>
-          <span className="settings-hint">
-            {profile.photo || profile.banner
-              ? 'Ao trocar, você escolhe a parte da imagem que aparece.'
-              : profile.googlePhoto && profile.photo !== false
-                ? 'Esta é a foto da sua conta Google. A capa é opcional; sem ela, fica a verde.'
-                : 'Sem foto, aparece a sua inicial. A capa é opcional; sem ela, fica a verde.'}
-          </span>
+        {/* Same look as the account card; the photo and the cover are changed right on it. */}
+        <div className={`profile-cover ${busy === 'banner' ? 'is-busy' : ''}`} style={banner ? { backgroundImage: `url(${banner})` } : undefined}>
+          <ImageMenu
+            className="profile-cover-btn"
+            label={profile.banner ? 'Capa do perfil' : 'Pôr uma capa'}
+            menuLabel="Capa do perfil"
+            disabled={!!busy}
+            onFile={(file) => setCropping({ kind: 'banner', file })}
+            onAdjust={banner ? () => setCropping({ kind: 'banner', file: fileFrom(banner) }) : undefined}
+            onRemove={profile.banner ? () => drop('banner') : undefined}
+            removeLabel="Tirar a capa"
+          >
+            <Icon name="image" size={15} />
+            {busy === 'banner' ? 'Salvando…' : profile.banner ? 'Trocar capa' : 'Pôr uma capa'}
+          </ImageMenu>
         </div>
+        <span className={`profile-photo ${busy === 'photo' ? 'is-busy' : ''}`}>
+          <Avatar profile={profile} email={email} size={88} />
+          <ImageMenu
+            className="profile-photo-btn"
+            label={busy === 'photo' ? 'Salvando a foto…' : 'Foto do perfil'}
+            menuLabel="Foto do perfil"
+            disabled={!!busy}
+            onFile={(file) => setCropping({ kind: 'photo', file })}
+            onAdjust={profile.photo && photo ? () => setCropping({ kind: 'photo', file: fileFrom(photo) }) : undefined}
+            onRemove={photo ? () => drop('photo') : undefined}
+            removeLabel="Tirar a foto"
+          >
+            <span className="profile-photo-badge">
+              <Icon name="camera" size={15} />
+            </span>
+          </ImageMenu>
+        </span>
+        <p className="settings-hint profile-hint">
+          {profile.googlePhoto && profile.photo === undefined
+            ? 'Esta é a foto da sua conta Google. Toque nela ou na capa para trocar.'
+            : 'Toque na foto ou na capa para trocar, ajustar a parte que aparece ou tirar.'}
+        </p>
       </div>
 
       <form className="settings-card" onSubmit={submitName}>
@@ -322,6 +314,116 @@ function AccountSection() {
 }
 
 type HandleCheck = { handle: string; state: 'checking' | 'free' | 'taken' | 'error' };
+
+/** A saved image (a data URL) as a file, to adjust it again in the editor. */
+function fileFrom(dataUrl: string): File {
+  const [head, body] = dataUrl.split(',');
+  const type = /data:([^;]+)/.exec(head)?.[1] ?? 'image/jpeg';
+  const bytes = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+  return new File([bytes], 'atual.jpg', { type });
+}
+
+type ImageMenuProps = {
+  className: string;
+  /** What the button says to a screen reader. */
+  label: string;
+  menuLabel: string;
+  disabled: boolean;
+  onFile: (file: File) => void;
+  onAdjust?: () => void;
+  onRemove?: () => void;
+  removeLabel: string;
+  children: ReactNode;
+};
+
+/**
+ * The button on the cover or on the photo. With nothing to adjust or take out
+ * it goes straight to choosing a file; otherwise it opens a small menu.
+ */
+function ImageMenu({ className, label, menuLabel, disabled, onFile, onAdjust, onRemove, removeLabel, children }: ImageMenuProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const hasMenu = !!onAdjust || !!onRemove;
+
+  useEffect(() => {
+    if (!open) return;
+    ref.current?.querySelector<HTMLElement>('[role=menuitem]')?.focus();
+    const away = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const keys = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        ref.current?.querySelector<HTMLElement>('[aria-haspopup]')?.focus();
+      }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const items = [...(ref.current?.querySelectorAll<HTMLElement>('[role=menuitem]') ?? [])];
+        const at = items.indexOf(document.activeElement as HTMLElement);
+        items[(at + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', keys);
+    return () => {
+      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('keydown', keys);
+    };
+  }, [open]);
+
+  const run = (action: () => void) => () => {
+    setOpen(false);
+    action();
+  };
+
+  return (
+    <div className={`image-menu ${className}`} ref={ref}>
+      <button
+        type="button"
+        className="image-menu-btn"
+        aria-label={label}
+        aria-haspopup={hasMenu ? 'menu' : undefined}
+        aria-expanded={hasMenu ? open : undefined}
+        disabled={disabled}
+        onClick={() => (hasMenu ? setOpen((o) => !o) : input.current?.click())}
+      >
+        {children}
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (file) onFile(file);
+        }}
+      />
+      {open && (
+        <div className="image-menu-list" role="menu" aria-label={menuLabel}>
+          <button type="button" role="menuitem" onClick={run(() => input.current?.click())}>
+            <Icon name="upload" size={16} />
+            Escolher outra imagem
+          </button>
+          {onAdjust && (
+            <button type="button" role="menuitem" onClick={run(onAdjust)}>
+              <Icon name="crop" size={16} />
+              Ajustar a parte que aparece
+            </button>
+          )}
+          {onRemove && (
+            <button type="button" role="menuitem" className="is-danger" onClick={run(onRemove)}>
+              <Icon name="trash" size={16} />
+              {removeLabel}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** The @, unique per account: checked as the author types, saved on its own. */
 function HandleForm({ userId }: { userId: string }) {

@@ -10,8 +10,6 @@ on:
   schedule:
     - cron: '0 6 * * *' # 3h da manhã em Brasília
   workflow_dispatch:
-  push: # TEMPORÁRIO: só para testar antes do merge
-    branches: [backup-diario]
 
 permissions: {}
 

@@ -50,8 +50,10 @@ create trigger records_rev before insert or update on records
   for each row execute function records_next_rev();
 
 -- Limites por conta, para uma conta sozinha não encher o banco (o plano grátis
--- tem 500 MB). Quem passa do limite recebe o erro 'lirismo_quota', e o app
--- avisa que a nuvem da conta está cheia. Apagar e encolher passam sempre, para
+-- tem 500 MB): 20 MB e 50 mil registros. 20 MB dão uns 300 capítulos de 3 mil
+-- palavras com as versões; são 25 contas cheias até lotar o banco (com 50 MB,
+-- eram 10). Quem passa do limite recebe o erro 'lirismo_quota', e o app avisa
+-- que a nuvem da conta está cheia. Apagar e encolher passam sempre, para
 -- quem está cheio conseguir liberar espaço. A maior parte do espaço é das
 -- versões dos capítulos (até 2 por capítulo). O app separa o registro que
 -- passa de 5 MB e segue enviando o resto (src/sync/engine.tsx). Para mudar
@@ -82,7 +84,7 @@ begin
   if added_rows = 0 and added_bytes <= 0 then return null; end if;
   select count(*), coalesce(sum(pg_column_size(data)), 0) into total_rows, total_bytes
     from records where user_id = auth.uid();
-  if total_rows > 50000 or total_bytes > 50 * 1024 * 1024 then
+  if total_rows > 50000 or total_bytes > 20 * 1024 * 1024 then
     raise exception 'lirismo_quota' using detail = format('%s registros, %s bytes', total_rows, total_bytes);
   end if;
   return null;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
+import { cutJpeg, type Crop } from '../lib/image';
 import { supabase } from './supabase';
 
 /*
@@ -27,7 +28,7 @@ export type Profile = {
 };
 
 /** The part of the image the author chose, in the image's own pixels. */
-export type Crop = { x: number; y: number; width: number; height: number };
+export type { Crop };
 
 /** The two images of a profile: what they are cut to and where they live. */
 const IMAGES = {
@@ -67,18 +68,9 @@ export function initials(name: string, email: string) {
 }
 
 /** A JPEG of the chosen part of the image, at the kind's size. */
-async function cutImage(file: Blob, kind: ImageKind, crop: Crop): Promise<Blob> {
+function cutImage(file: Blob, kind: ImageKind, crop: Crop): Promise<Blob> {
   const { width, height, quality } = IMAGES[kind];
-  const bitmap = await createImageBitmap(file);
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(bitmap, crop.x, crop.y, crop.width, crop.height, 0, 0, width, height);
-  bitmap.close();
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
-  if (!blob) throw new Error('canvas');
-  return blob;
+  return cutJpeg(file, crop, width, height, quality);
 }
 
 const toDataUrl = (blob: Blob) =>

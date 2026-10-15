@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import type { Session } from '@supabase/supabase-js';
 import { db, purgeTrash, type Story } from '../db';
 import { ask, tell } from '../components/Ask';
+import { COVER_MAX_BYTES, shrinkCover } from '../lib/image';
 import { plural } from '../lib/text';
 import { markFromSync, onLocalChanges, SYNCED_TABLES, type ChangeKey, type SyncedTable } from './middleware';
 import { supabase } from './supabase';
@@ -113,12 +114,51 @@ async function removeCover(storyId: string) {
   await syncDb.covers.delete(storyId);
 }
 
+/**
+ * A cover kept before covers were shrunk on picking, made small and saved so
+ * locally too. If the story got another cover meanwhile, that one stays.
+ */
+async function shrinkOldCover(storyId: string, cover: Blob): Promise<Blob> {
+  let small: Blob;
+  try {
+    small = await shrinkCover(cover);
+  } catch {
+    return cover;
+  }
+  await db.transaction('rw', db.stories, async (tx) => {
+    // It goes up right now, so this write need not wait in the outbox.
+    markFromSync(tx.idbtrans);
+    const current = await db.stories.get(storyId);
+    if (current?.coverImage?.size === cover.size) await db.stories.update(storyId, { coverImage: small });
+  });
+  return small;
+}
+
+/**
+ * Puts in the outbox the stories whose cover is still large, once per page
+ * load. Only after a pull: the story that goes up must be the latest one.
+ */
+let oldCoversChecked = false;
+async function queueOldCovers() {
+  if (oldCoversChecked) return;
+  oldCoversChecked = true;
+  const large: ChangeKey[] = [];
+  await db.stories.each((s) => {
+    if (s.coverImage && s.coverImage.size > COVER_MAX_BYTES) large.push({ kind: 'stories', id: s.id });
+  });
+  if (!large.length) return;
+  await enqueue(large);
+  window.clearTimeout(pushTimer);
+  pushTimer = window.setTimeout(syncNow, PUSH_DELAY);
+}
+
 /** The story as stored on the server: the image goes to Storage, the row keeps its path. */
 async function storyToWire({ coverImage, ...story }: Story) {
   if (!coverImage) {
     await removeCover(story.id);
     return story;
   }
+  if (coverImage.size > COVER_MAX_BYTES) coverImage = await shrinkOldCover(story.id, coverImage);
   const hash = await blobHash(coverImage);
   if ((await syncDb.covers.get(story.id))?.hash !== hash) {
     const { error } = await supabase!.storage
@@ -296,6 +336,7 @@ async function syncOnce() {
       full = true;
     }
     await pull();
+    await queueOldCovers();
     setState({ status: full ? 'full' : 'synced', lastSync: Date.now(), pending: await syncDb.outbox.count() });
     if (full) warnFull();
     if (!pulledOnce) {

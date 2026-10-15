@@ -5,11 +5,48 @@
 .account-btn {
   position: relative;
   color: var(--ink-2);
+  border-radius: 50%;
+}
+
+/* The author's photo, or initials on the accent color. */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.account-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.account-who > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.account-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .account-dot {
   position: absolute;
-  right: 8px;
-  bottom: 9px;
+  right: 2px;
+  bottom: 3px;
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -55,11 +92,16 @@
   box-shadow: var(--shadow-pop);
 }
 .account-email {
-  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink-3);
   overflow-wrap: anywhere;
 }
+.account-who > div > .account-email:only-child {
+  font-weight: 600;
+  color: var(--ink);
+}
 .account-status {
-  margin: 6px 0 10px;
+  margin: 12px 0 10px;
   font-size: 14px;
   line-height: 1.45;
   color: var(--ink-3);

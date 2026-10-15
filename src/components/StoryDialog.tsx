@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COVER_COLORS, createStory, db, STATUS_LABEL, TRASH_DAYS, trashStory, type Story, type StoryStatus } from '../db';
+import { COVER_COLORS, createStory, db, STATUS_LABEL, storyStatus, TRASH_DAYS, trashStory, type Story, type StoryStatus } from '../db';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -25,8 +25,9 @@ const draftKey = (story?: Story) => `lirismo:rascunho:${story ? story.id : 'nova
 const draftImages = new Map<string, Blob | undefined>();
 
 function savedFields(story?: Story): Draft {
-  if (!story) return { title: '', synopsis: '', genre: '', coverColor: COVER_COLORS[0], status: 'planejamento' };
-  const { title, synopsis, genre, coverColor, status, coverImage } = story;
+  if (!story) return { title: '', synopsis: '', genre: '', coverColor: COVER_COLORS[0], status: 'escrita' };
+  const { title, synopsis, genre, coverColor, coverImage } = story;
+  const status = storyStatus(story);
   return { title, synopsis, genre, coverColor, status, coverImage };
 }
 
@@ -34,7 +35,11 @@ function loadDraft(story?: Story): Draft | null {
   const key = draftKey(story);
   try {
     const raw = localStorage.getItem(key);
-    if (raw) return { ...savedFields(story), ...JSON.parse(raw), coverImage: draftImages.has(key) ? draftImages.get(key) : story?.coverImage };
+    if (raw) {
+      const draft: Draft = { ...savedFields(story), ...JSON.parse(raw), coverImage: draftImages.has(key) ? draftImages.get(key) : story?.coverImage };
+      // A draft from before "Em planejamento" was retired.
+      return { ...draft, status: storyStatus(draft) };
+    }
   } catch {
     // Unreadable storage: fall through.
   }

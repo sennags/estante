@@ -38,6 +38,26 @@
   --danger: #8e2f2a;
   --shelf: #cdbb9c;
   --shelf-edge: #b49f7c;
+  --accent-hover: #263d34;
+  --brass-ink: #6b4614;
+  --danger-soft: #f4e1dc;
+  --danger-hover: #74241f;
+  --placeholder: #b5ad9c;
+  --paper-edge: #d8d0bf;
+  --tab-track: #e6e0d2;
+  --veil: rgba(255, 253, 248, 0.5);
+  --scrim: rgba(31, 36, 33, 0.4);
+  --shadow-tint: rgba(60, 45, 25, 0.45);
+  --toolbar-bg: #1f2421;
+  --toolbar-fg: #f3efe6;
+  --toolbar-hover: #3a403c;
+  --toolbar-sep: #4a4f4b;
+  --toolbar-muted: #cfc8b8;
+  --kind-misterio: #8a5a1e;
+  --kind-promessa: #2f4a3f;
+  --kind-conflito: #6e2e2b;
+  --kind-acontecimento: #24344d;
+  --kind-objeto: #4b3b5c;
 
   --serif-display: 'Newsreader Variable', Georgia, serif;
   --serif-text: 'Literata Variable', Georgia, serif;
@@ -49,6 +69,121 @@
   --shadow-pop: 0 16px 32px -16px rgba(20, 20, 15, 0.55);
 
   color-scheme: light;
+}
+
+/*
+ * Themes (src/lib/settings.ts sets data-tema on <html>). Same layout as the
+ * light theme, only the colors change. "Meio-termo" is a dim warm graphite;
+ * "Escuro" is close to black. Book covers keep their own colors.
+ */
+:root[data-tema='meio'],
+:root[data-tema='escuro'] {
+  --ink: #ede7db;
+  --ink-2: #d6cfc2;
+  --ink-3: #c2baab;
+  --ink-4: #aaa294;
+  --ink-5: #8f887b;
+  --text-ink: #ede7db;
+  --danger-hover: #eea49b;
+  --veil: rgba(255, 255, 255, 0.05);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --shadow-tint: rgba(0, 0, 0, 0.6);
+  --toolbar-fg: #ede7db;
+  --toolbar-muted: #b5ad9c;
+  --kind-misterio: #d1a35c;
+  --kind-promessa: #8fb9a2;
+  --kind-conflito: #e0857b;
+  --kind-acontecimento: #8fa8d0;
+  --kind-objeto: #b49ccf;
+  --shadow-pop: 0 16px 32px -16px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}
+:root[data-tema='meio'] {
+  --paper: #3a3631;
+  --ground: #2f2c28;
+  --desk: #27241f;
+  --surface: #35322d;
+  --line: #4a453e;
+  --line-soft: #433e38;
+  --line-strong: #5c564d;
+  --accent: #9cc2ad;
+  --accent-ink: #1c2622;
+  --accent-hover: #b3d3c1;
+  --accent-soft: #45413a;
+  --brass: #d1a35c;
+  --brass-soft: #4d3f28;
+  --brass-line: #b98d4a;
+  --brass-ink: #f0d29c;
+  --danger: #e59288;
+  --danger-soft: #4a2e2a;
+  --shelf: #5a4d3b;
+  --shelf-edge: #44392b;
+  --placeholder: #6f685d;
+  --paper-edge: #23201c;
+  --tab-track: #2a2723;
+  --toolbar-bg: #1f1d1a;
+  --toolbar-hover: #3a3631;
+  --toolbar-sep: #4a453e;
+}
+:root[data-tema='escuro'] {
+  --paper: #201f1c;
+  --ground: #161513;
+  --desk: #0f0e0d;
+  --surface: #1c1b18;
+  --line: #34322d;
+  --line-soft: #2b2926;
+  --line-strong: #46433d;
+  --accent: #8fb9a2;
+  --accent-ink: #121a16;
+  --accent-hover: #a9cbb8;
+  --accent-soft: #2c2a26;
+  --brass: #c99a52;
+  --brass-soft: #3a2f1e;
+  --brass-line: #a8823f;
+  --brass-ink: #ecc98c;
+  --danger: #e0857b;
+  --danger-soft: #3b2421;
+  --shelf: #3d3428;
+  --shelf-edge: #2c251c;
+  --placeholder: #5f594f;
+  --paper-edge: #000;
+  --tab-track: #11100f;
+  --toolbar-bg: #2a2824;
+  --toolbar-hover: #3a3732;
+  --toolbar-sep: #46433d;
+}
+
+/*
+ * The book sheet in the editor (data-folha on <html>). Unset follows the
+ * theme: white in light, yellowed in "meio-termo", black in dark.
+ * The PDF is always printed on white.
+ */
+:root,
+:root[data-folha='branca'] {
+  --sheet-bg: #fffdf8;
+  --sheet-ink: #24221e;
+  --sheet-muted: #8a8374;
+  --sheet-faint: #b5ad9c;
+  --sheet-edge: #d8d0bf;
+  --sheet-select: #f1e3c4;
+}
+:root[data-tema='meio']:not([data-folha]),
+:root[data-folha='amarelada'] {
+  --sheet-bg: #f3e8cc;
+  --sheet-ink: #2b2418;
+  --sheet-muted: #85765a;
+  --sheet-faint: #b9a884;
+  --sheet-edge: #d6c497;
+  --sheet-select: #e6cf98;
+}
+:root[data-tema='escuro']:not([data-folha]),
+:root[data-folha='preta'] {
+  --sheet-bg: #1b1a18;
+  --sheet-ink: #e6e0d4;
+  --sheet-muted: #8f887b;
+  --sheet-faint: #5d584f;
+  --sheet-edge: #000;
+  --sheet-select: #4d3f28;
 }
 
 *,
@@ -131,7 +266,7 @@ a {
   font-weight: 600;
 }
 .btn-primary:hover {
-  background: #263d34;
+  background: var(--accent-hover);
 }
 .btn-dark {
   background: var(--ink);
@@ -153,13 +288,13 @@ a {
   color: var(--ink-2);
 }
 .btn-dashed:hover {
-  background: rgba(255, 253, 248, 0.6);
+  background: var(--veil);
 }
 .btn-danger {
   color: var(--danger);
 }
 .btn-danger:hover {
-  background: #f4e1dc;
+  background: var(--danger-soft);
 }
 .btn-solid-danger {
   background: var(--danger);
@@ -167,7 +302,7 @@ a {
   font-weight: 600;
 }
 .btn-solid-danger:hover {
-  background: #74241f;
+  background: var(--danger-hover);
 }
 .icon-btn {
   width: 44px;
@@ -326,7 +461,7 @@ a {
   padding: 10px 14px;
   border-radius: var(--radius);
   background: var(--brass-soft);
-  color: #6b4614;
+  color: var(--brass-ink);
   font-size: 14px;
 }
 
@@ -337,19 +472,19 @@ a {
 
 /* Colors per kind of narrative thread; also used on chips and cards. */
 .kind-misterio {
-  --kind: #8a5a1e;
+  --kind: var(--kind-misterio);
 }
 .kind-promessa {
-  --kind: #2f4a3f;
+  --kind: var(--kind-promessa);
 }
 .kind-conflito {
-  --kind: #6e2e2b;
+  --kind: var(--kind-conflito);
 }
 .kind-acontecimento {
-  --kind: #24344d;
+  --kind: var(--kind-acontecimento);
 }
 .kind-objeto {
-  --kind: #4b3b5c;
+  --kind: var(--kind-objeto);
 }
 
 /* Chips (filters and single choices) */

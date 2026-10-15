@@ -123,7 +123,7 @@
   justify-content: space-between;
   flex: none;
   border-radius: 3px 6px 6px 3px;
-  box-shadow: inset 7px 0 0 rgba(0, 0, 0, 0.16), 0 10px 20px -12px rgba(40, 30, 20, 0.6);
+  box-shadow: inset 7px 0 0 rgba(0, 0, 0, 0.16), 0 10px 20px -12px var(--shadow-tint);
   overflow: hidden;
 }
 .cover-md {
@@ -197,7 +197,7 @@
   bottom: 0;
   height: 12px;
   background: var(--shelf);
-  box-shadow: 0 1px 0 var(--shelf-edge), 0 12px 18px -10px rgba(70, 50, 25, 0.45);
+  box-shadow: 0 1px 0 var(--shelf-edge), 0 12px 18px -10px var(--shadow-tint);
   z-index: 0;
 }
 .book-stand > * {
@@ -261,8 +261,9 @@
   .library-actions {
     width: 100%;
   }
+  /* The search gets its own line; the buttons sit below it. */
   .search {
-    flex: 1;
+    flex: 1 1 100%;
     min-width: 0;
   }
   .library-actions .btn {

@@ -2,13 +2,20 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { JSONContent } from '@tiptap/react';
 import { syncMiddleware } from './sync/middleware';
 
-export type StoryStatus = 'planejamento' | 'escrita' | 'revisao';
+export type StoryStatus = 'escrita' | 'revisao' | 'feito';
 
 export const STATUS_LABEL: Record<StoryStatus, string> = {
-  planejamento: 'Em planejamento',
-  escrita: 'Em escrita',
-  revisao: 'Em revisão',
+  escrita: 'Escrevendo',
+  revisao: 'Revisão',
+  feito: 'Feito',
 };
+
+/**
+ * The story's phase. "Em planejamento" was retired: those stories, and any
+ * unknown value coming from an older device, sit on "Escrevendo".
+ */
+export const storyStatus = (s: Pick<Story, 'status'>): StoryStatus =>
+  (s.status as string) in STATUS_LABEL ? s.status : 'escrita';
 
 export interface Story {
   id: string;
@@ -192,7 +199,7 @@ const emptyDoc = (): JSONContent => ({ type: 'doc', content: [{ type: 'paragraph
 
 export async function createStory(data: Pick<Story, 'title' | 'synopsis' | 'genre' | 'coverColor' | 'coverImage'>): Promise<Story> {
   const now = Date.now();
-  const story: Story = { id: uid(), status: 'planejamento', createdAt: now, updatedAt: now, ...data };
+  const story: Story = { id: uid(), status: 'escrita', createdAt: now, updatedAt: now, ...data };
   await db.transaction('rw', db.stories, db.chapters, async () => {
     await db.stories.add(story);
     const chapter = await addChapter(story.id);

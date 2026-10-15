@@ -98,7 +98,7 @@ button.thread-head {
   padding: 6px 10px;
   border-radius: 8px;
   background: var(--brass-soft);
-  color: #6b4614;
+  color: var(--brass-ink);
   font-size: 13px;
 }
 .thread-alert svg {

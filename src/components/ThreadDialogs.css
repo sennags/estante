@@ -40,7 +40,7 @@
   padding: 10px 14px;
   border-radius: var(--radius);
   background: var(--brass-soft);
-  color: #6b4614;
+  color: var(--brass-ink);
   font-size: 14px;
 }
 .thread-warning svg {

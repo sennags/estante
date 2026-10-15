@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Icon } from './Icon';
-import { DeleteAccountDialog, SignInDialog, SignOutDialog, useAccount } from './AccountDialogs';
+import { Avatar } from './Avatar';
+import { SignInDialog, SignOutDialog, useAccount } from './AccountDialogs';
 import { pendingLabel, syncNow, type AccountState } from '../sync/engine';
 import { relativeTime } from '../lib/text';
 import './AccountMenu.css';
 
-function statusText(a: AccountState): string {
+export function statusText(a: AccountState): string {
   switch (a.status) {
     case 'syncing':
       return 'Sincronizando…';
@@ -24,13 +26,21 @@ function statusText(a: AccountState): string {
   }
 }
 
-/** "Entrar" button, or the account menu once signed in. Hidden when accounts are not set up. */
+/** Link to the settings page (theme, sheet color, profile). */
+function SettingsLink() {
+  return (
+    <Link to="/configuracoes" className="icon-btn" aria-label="Configurações" title="Configurações">
+      <Icon name="settings" size={20} stroke={1.8} />
+    </Link>
+  );
+}
+
+/** "Entrar" button, or the author's photo with the account menu once signed in. */
 export function AccountMenu() {
   const account = useAccount();
   const [open, setOpen] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,11 +55,12 @@ export function AccountMenu() {
     };
   }, [open]);
 
-  if (!account.configured) return null;
+  if (!account.configured) return <SettingsLink />;
 
   if (!account.email) {
     return (
       <>
+        <SettingsLink />
         <button className="btn btn-outline" onClick={() => setSigningIn(true)} title={account.linked ? 'Entre de novo para continuar sincronizando' : undefined}>
           <Icon name="user" size={16} />
           {account.linked ? 'Entrar de novo' : 'Entrar'}
@@ -59,7 +70,6 @@ export function AccountMenu() {
     );
   }
 
-  const trouble = account.status === 'offline' || account.status === 'error' || account.status === 'full';
   return (
     <div className="account" ref={ref}>
       <button
@@ -69,15 +79,24 @@ export function AccountMenu() {
         title={statusText(account)}
         onClick={() => setOpen((o) => !o)}
       >
-        <Icon name={trouble ? 'cloudOff' : 'cloud'} size={22} stroke={1.8} />
+        <Avatar profile={account.profile} email={account.email} size={38} />
         <span className="account-dot" aria-hidden="true" />
       </button>
       {open && (
         <div className="account-pop" role="dialog" aria-label="Conta">
-          <span className="eyebrow">Sua conta</span>
-          <strong className="account-email">{account.email}</strong>
+          <div className="account-who">
+            <Avatar profile={account.profile} email={account.email} size={48} />
+            <div>
+              {account.profile?.name && <strong className="account-name">{account.profile.name}</strong>}
+              <span className="account-email">{account.email}</span>
+            </div>
+          </div>
           <p className={`account-status is-${account.status}`} aria-live="polite">{statusText(account)}</p>
           <div className="account-actions">
+            <Link className="btn btn-sm btn-outline" to="/configuracoes/perfil">
+              <Icon name="settings" size={15} />
+              Perfil e configurações
+            </Link>
             <button className="btn btn-sm btn-outline" disabled={account.status === 'syncing'} onClick={() => syncNow()}>
               <Icon name="refresh" size={15} />
               Sincronizar agora
@@ -93,19 +112,9 @@ export function AccountMenu() {
               Sair
             </button>
           </div>
-          <button
-            className="link-btn account-delete"
-            onClick={() => {
-              setOpen(false);
-              setDeleting(true);
-            }}
-          >
-            Excluir minha conta
-          </button>
         </div>
       )}
       {signingOut && <SignOutDialog onClose={() => setSigningOut(false)} />}
-      {deleting && <DeleteAccountDialog email={account.email} onClose={() => setDeleting(false)} />}
     </div>
   );
 }

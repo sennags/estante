@@ -7,6 +7,7 @@ import { Universe } from './pages/Universe';
 import { Trash } from './pages/Trash';
 import { Planning } from './pages/Planning';
 import { Threads } from './pages/Threads';
+import { Settings } from './pages/Settings';
 import { AskHost } from './components/Ask';
 import { NewPasswordDialog, useAccount } from './components/AccountDialogs';
 import { startSync } from './sync/engine';
@@ -25,6 +26,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<Library />} />
         <Route path="/lixeira" element={<Trash />} />
+        <Route path="/configuracoes/:secao?" element={<Settings />} />
         <Route path="/historia/:storyId" element={<StoryLayout />}>
           <Route index element={<StoryIndex />} />
           <Route path="capitulo/:chapterId" element={<ChapterEditor />} />

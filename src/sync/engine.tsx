@@ -5,6 +5,7 @@ import { ask, tell } from '../components/Ask';
 import { plural } from '../lib/text';
 import { markFromSync, onLocalChanges, SYNCED_TABLES, type ChangeKey, type SyncedTable } from './middleware';
 import { supabase } from './supabase';
+import { forgetPhoto, profileFrom, type Profile } from './profile';
 
 /*
  * Local-first sync. The browser (Dexie) stays the source of truth; the
@@ -45,6 +46,8 @@ export type AccountState = {
   configured: boolean;
   /** Signed in now. */
   email: string | null;
+  /** Name and photo, while signed in. */
+  profile?: Profile;
   /** This browser's stories are tied to an account (even if the session expired). */
   linked: boolean;
   status: SyncStatus;
@@ -359,7 +362,7 @@ let handledUser: string | null | undefined;
 async function handleSession(next: Session | null) {
   session = next;
   const userId = next?.user.id ?? null;
-  setState({ email: next?.user.email ?? null });
+  setState({ email: next?.user.email ?? null, profile: next ? profileFrom(next.user) : undefined });
   if (userId === handledUser) return;
   handledUser = userId;
   if (!userId) return setState({ status: 'idle' });
@@ -510,13 +513,15 @@ export async function eraseLocal() {
     await Promise.all(SYNCED_TABLES.map((t) => db.table(t).clear()));
   });
   Object.keys(localStorage)
-    .filter((k) => k.startsWith('lirismo:'))
+    // The theme and sheet color are the device's, not the account's.
+    .filter((k) => k.startsWith('lirismo:') && k !== 'lirismo:tema' && k !== 'lirismo:folha')
     .forEach((k) => localStorage.removeItem(k));
 }
 
 /** Signs out; without `keepCopy`, also erases this browser's stories. */
 export async function signOut(keepCopy: boolean) {
   await unlink();
+  forgetPhoto();
   if (!keepCopy) await eraseLocal();
   handledUser = null;
   await supabase?.auth.signOut({ scope: 'local' });
@@ -531,6 +536,7 @@ export async function deleteAccount() {
   const { error } = await supabase!.functions.invoke('excluir-conta', { method: 'POST' });
   if (error) throw error;
   await unlink();
+  forgetPhoto();
   handledUser = null;
   // The server no longer knows the session; signing out only clears it here.
   await supabase!.auth.signOut({ scope: 'local' });

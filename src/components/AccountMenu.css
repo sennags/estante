@@ -321,3 +321,34 @@
     right: 16px;
   }
 }
+
+/* The @ field: the sign sits inside the box. */
+.handle-input {
+  position: relative;
+  display: flex;
+}
+.handle-input > span {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-4);
+  pointer-events: none;
+}
+.handle-input .input {
+  padding-left: 28px;
+}
+.handle-input.is-bad .input {
+  border-color: var(--danger);
+}
+.handle-status {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-4);
+}
+.handle-status.is-bad {
+  color: var(--danger);
+}
+.handle-status.is-good {
+  color: var(--accent);
+}

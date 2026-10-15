@@ -3,7 +3,8 @@ import { Icon } from './Icon';
 
 type ModalProps = {
   title: string;
-  onClose: () => void;
+  /** Without it the window has no close button and only its own buttons end it. */
+  onClose?: () => void;
   children: ReactNode;
   wide?: boolean;
   /** Ignore Esc and clicks on the backdrop; only the buttons close it. */
@@ -11,7 +12,8 @@ type ModalProps = {
 };
 
 /** Native <dialog> shown as a modal while mounted. */
-export function Modal({ title, onClose, children, wide, locked }: ModalProps) {
+export function Modal({ title, onClose, children, wide, locked: lockedProp }: ModalProps) {
+  const locked = lockedProp || !onClose;
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -42,23 +44,25 @@ export function Modal({ title, onClose, children, wide, locked }: ModalProps) {
         // Handling Esc here stops the browser from starting a cancel at all.
         if (e.key === 'Escape') {
           e.preventDefault();
-          if (!locked) onClose();
+          if (!locked) onClose?.();
         }
       }}
       onCancel={(e) => {
         e.preventDefault();
-        if (!locked) onClose();
+        if (!locked) onClose?.();
       }}
       onClick={(e) => {
-        if (!locked && e.target === ref.current) onClose();
+        if (!locked && e.target === ref.current) onClose?.();
       }}
     >
       <div className="dialog-body">
         <div className="dialog-head">
           <h2>{title}</h2>
-          <button className="icon-btn" aria-label="Fechar" onClick={onClose}>
-            <Icon name="close" />
-          </button>
+          {onClose && (
+            <button className="icon-btn" aria-label="Fechar" onClick={onClose}>
+              <Icon name="close" />
+            </button>
+          )}
         </div>
         {children}
       </div>

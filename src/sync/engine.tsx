@@ -18,18 +18,24 @@ import { forgetPhoto, loadHandle, profileFrom, type Profile } from './profile';
  * - Pulling fetches rows with a rev above the last one seen and applies
  *   them, except records that still have a local change waiting to go up.
  * - Cover images go to Storage (bucket `covers`); the row keeps only the path.
+ * - What the server will never take (a record over its size limit, a cover
+ *   past the account's covers) is set aside, so the rest keeps going up.
  */
 
 type OutboxItem = { key: string; kind: SyncedTable; id: string; stamp: string };
 type Meta = { key: string; value: unknown };
 type CoverCache = { storyId: string; hash: string };
+/** A record the server refused for its size; `bytes` is how big it was then. */
+type HeldItem = { key: string; kind: SyncedTable; id: string; bytes: number };
 
 const syncDb = new Dexie('lirismo-sync') as Dexie & {
   outbox: Table<OutboxItem, string>;
   meta: Table<Meta, string>;
   covers: Table<CoverCache, string>;
+  held: Table<HeldItem, string>;
 };
 syncDb.version(1).stores({ outbox: 'key', meta: 'key', covers: 'storyId' });
+syncDb.version(2).stores({ held: 'key' });
 
 type Row = { kind: SyncedTable; id: string; data: Record<string, unknown> | null; deleted: boolean; rev: number };
 
@@ -55,12 +61,14 @@ export type AccountState = {
   linked: boolean;
   status: SyncStatus;
   pending: number;
+  /** Records too big for the server: they stay only on this device. */
+  held: number;
   lastSync?: number;
   /** Came back from a "forgot my password" link: ask for the new one. */
   recovering: boolean;
 };
 
-let state: AccountState = { configured: !!supabase, email: null, linked: false, status: 'idle', pending: 0, recovering: false };
+let state: AccountState = { configured: !!supabase, email: null, linked: false, status: 'idle', pending: 0, held: 0, recovering: false };
 const subscribers = new Set<() => void>();
 
 function setState(changes: Partial<AccountState>) {
@@ -84,18 +92,30 @@ let session: Session | null = null;
 const PUSH_DELAY = 3000;
 let pushTimer = 0;
 
+const countPending = async () => ({ pending: await syncDb.outbox.count(), held: await syncDb.held.count() });
+
+/** The size of a record as sent, close to what the server measures. */
+const wireSize = (record: unknown) => JSON.stringify(record).length;
+
 async function enqueue(changes: ChangeKey[]) {
   const items = new Map<string, OutboxItem>();
   for (const c of changes) items.set(recordKey(c.kind, c.id), { key: recordKey(c.kind, c.id), ...c, stamp: crypto.randomUUID() });
-  await syncDb.outbox.bulkPut([...items.values()]);
-  setState({ pending: await syncDb.outbox.count() });
+  // A record set aside for its size goes back in line only once it shrank (or was deleted).
+  for (const h of await syncDb.held.bulkGet([...items.keys()])) {
+    if (!h) continue;
+    const record = await db.table(h.kind).get(h.id);
+    if (record && wireSize(record) >= h.bytes) items.delete(h.key);
+    else await syncDb.held.delete(h.key);
+  }
+  if (items.size) await syncDb.outbox.bulkPut([...items.values()]);
+  setState(await countPending());
 }
 
 onLocalChanges((changes) => {
   if (!linkedUser) return;
   enqueue(changes).then(() => {
     window.clearTimeout(pushTimer);
-    pushTimer = window.setTimeout(syncNow, PUSH_DELAY);
+    pushTimer = window.setTimeout(() => syncNow(), PUSH_DELAY);
   });
 });
 
@@ -112,6 +132,27 @@ async function removeCover(storyId: string) {
   if (!(await syncDb.covers.get(storyId))) return;
   await supabase!.storage.from('covers').remove([coverPath(storyId)]);
   await syncDb.covers.delete(storyId);
+  // A slot opened up: the covers left out get another try.
+  const left = await coversLeftOut();
+  if (left.length) await enqueue(left.map((id) => ({ kind: 'stories', id })));
+}
+
+/**
+ * Stories whose cover Storage refused (the account's 50 covers, see
+ * supabase/schema.sql). They go up without it and keep it on this device.
+ */
+const coversLeftOut = async () => (await getMeta<string[]>('coversLeftOut')) ?? [];
+
+async function leaveCoverOut(storyId: string, out: boolean) {
+  const left = await coversLeftOut();
+  if (out === left.includes(storyId)) return;
+  await setMeta('coversLeftOut', out ? [...left, storyId] : left.filter((id) => id !== storyId));
+}
+
+/** Storage turned the file down for good (a rule or its size), not a network or session hiccup. */
+function refused(err: unknown) {
+  const status = (err as { status?: unknown } | null)?.status;
+  return typeof status === 'number' && status >= 400 && status < 500 && ![401, 408, 429].includes(status);
 }
 
 /**
@@ -135,26 +176,37 @@ async function shrinkOldCover(storyId: string, cover: Blob): Promise<Blob> {
 }
 
 /**
- * Puts in the outbox the stories whose cover is still large, once per page
- * load. Only after a pull: the story that goes up must be the latest one.
+ * Puts in the outbox, once per page load, the stories whose cover is still
+ * large and those whose cover was left out, for another try. Only after a
+ * pull: the story that goes up must be the latest one.
  */
 let oldCoversChecked = false;
 async function queueOldCovers() {
   if (oldCoversChecked) return;
   oldCoversChecked = true;
-  const large: ChangeKey[] = [];
+  const again: ChangeKey[] = (await coversLeftOut()).map((id) => ({ kind: 'stories', id }));
   await db.stories.each((s) => {
-    if (s.coverImage && s.coverImage.size > COVER_MAX_BYTES) large.push({ kind: 'stories', id: s.id });
+    if (s.coverImage && s.coverImage.size > COVER_MAX_BYTES) again.push({ kind: 'stories', id: s.id });
   });
-  if (!large.length) return;
-  await enqueue(large);
+  if (!again.length) return;
+  await enqueue(again);
   window.clearTimeout(pushTimer);
-  pushTimer = window.setTimeout(syncNow, PUSH_DELAY);
+  pushTimer = window.setTimeout(() => syncNow(), PUSH_DELAY);
 }
 
-/** The story as stored on the server: the image goes to Storage, the row keeps its path. */
-async function storyToWire({ coverImage, ...story }: Story) {
+/** Covers left out during this page load, to tell the author once. */
+const newlyLeftOut = new Set<string>();
+
+/**
+ * The story as stored on the server: the image goes to Storage, the row keeps
+ * its path. A cover Storage refuses stays here, and `coverOnlyHere` tells the
+ * other devices to keep whatever cover they have.
+ */
+async function storyToWire(local: Story) {
+  const story = withoutCover({ ...local }) as Omit<Story, 'coverImage'>;
+  let coverImage = local.coverImage;
   if (!coverImage) {
+    await leaveCoverOut(story.id, false);
     await removeCover(story.id);
     return story;
   }
@@ -164,9 +216,15 @@ async function storyToWire({ coverImage, ...story }: Story) {
     const { error } = await supabase!.storage
       .from('covers')
       .upload(coverPath(story.id), coverImage, { upsert: true, contentType: coverImage.type || undefined });
-    if (error) throw error;
+    if (error && !refused(error)) throw error;
+    if (error) {
+      if (!(await coversLeftOut()).includes(story.id)) newlyLeftOut.add(story.id);
+      await leaveCoverOut(story.id, true);
+      return { ...story, coverOnlyHere: true };
+    }
     await syncDb.covers.put({ storyId: story.id, hash });
   }
+  await leaveCoverOut(story.id, false);
   return { ...story, coverPath: coverPath(story.id), coverHash: hash };
 }
 
@@ -174,11 +232,47 @@ async function storyToWire({ coverImage, ...story }: Story) {
 
 const MAX_BATCH_BYTES = 1_000_000;
 
+type WireRow = { user_id: string | null; kind: SyncedTable; id: string; data: Record<string, unknown> | null; deleted: boolean };
+
+const upsert = (rows: WireRow[]) => supabase!.from('records').upsert(rows, { onConflict: 'user_id,kind,id' });
+
+/** A record over the server's size limit (check records_data_size in supabase/schema.sql). */
+const isTooBig = (err: unknown) => (err as { code?: unknown } | null)?.code === '23514';
+
+/** Takes sent items out of the outbox; one that changed again while it was being sent stays for the next round. */
+async function markSent(items: OutboxItem[]) {
+  await syncDb.transaction('rw', syncDb.outbox, async () => {
+    for (const item of items) {
+      if ((await syncDb.outbox.get(item.key))?.stamp === item.stamp) await syncDb.outbox.delete(item.key);
+    }
+  });
+}
+
+/** Records set aside during this page load, to tell the author once. */
+const newlyHeld = new Set<string>();
+
+/**
+ * A batch with a record the server will never take: each goes alone, and the
+ * ones too big are set aside (see enqueue), so they stop holding up the rest.
+ */
+async function pushOneByOne(items: OutboxItem[], rows: WireRow[]) {
+  for (let i = 0; i < rows.length; i++) {
+    const { error } = await upsert([rows[i]]);
+    if (error && !isTooBig(error)) throw error;
+    if (error) {
+      const { key, kind, id } = items[i];
+      await syncDb.held.put({ key, kind, id, bytes: wireSize(rows[i].data) });
+      newlyHeld.add(key);
+    }
+    await markSent([items[i]]);
+  }
+}
+
 async function push() {
   for (let round = 0; round < 50; round++) {
     const items = await syncDb.outbox.limit(100).toArray();
     if (!items.length) return;
-    const rows = [];
+    const rows: WireRow[] = [];
     let bytes = 0;
     for (const item of items) {
       const record = await db.table(item.kind).get(item.id);
@@ -186,20 +280,50 @@ async function push() {
       if (record) data = item.kind === 'stories' ? await storyToWire(record) : record;
       else if (item.kind === 'stories') await removeCover(item.id);
       rows.push({ user_id: linkedUser, kind: item.kind, id: item.id, data, deleted: !record });
-      bytes += data ? JSON.stringify(data).length : 0;
+      bytes += data ? wireSize(data) : 0;
       if (bytes > MAX_BATCH_BYTES) break;
     }
-    const { error } = await supabase!.from('records').upsert(rows, { onConflict: 'user_id,kind,id' });
-    if (error) throw error;
-    // A record changed again while it was being sent stays in the outbox for the next round.
     const sent = items.slice(0, rows.length);
-    await syncDb.transaction('rw', syncDb.outbox, async () => {
-      for (const item of sent) {
-        if ((await syncDb.outbox.get(item.key))?.stamp === item.stamp) await syncDb.outbox.delete(item.key);
-      }
-    });
-    setState({ pending: await syncDb.outbox.count() });
+    const { error } = await upsert(rows);
+    if (error && !isTooBig(error)) throw error;
+    if (error) await pushOneByOne(sent, rows);
+    else await markSent(sent);
+    setState(await countPending());
   }
+}
+
+/**
+ * With the account full, deletions go first: they free space, and a batch
+ * of new records ahead of them in line would be refused with them.
+ * Returns how many went up.
+ */
+async function pushDeletions() {
+  const items = await syncDb.outbox.toArray();
+  const gone: OutboxItem[] = [];
+  for (const kind of SYNCED_TABLES) {
+    const ofKind = items.filter((i) => i.kind === kind);
+    if (!ofKind.length) continue;
+    const exist = new Set(await db.table(kind).where(':id').anyOf(ofKind.map((i) => i.id)).primaryKeys());
+    gone.push(...ofKind.filter((i) => !exist.has(i.id)));
+  }
+  for (let i = 0; i < gone.length; i += 100) {
+    const batch = gone.slice(i, i + 100);
+    for (const item of batch) if (item.kind === 'stories') await removeCover(item.id);
+    const rows = batch.map((item): WireRow => ({ user_id: linkedUser, kind: item.kind, id: item.id, data: null, deleted: true }));
+    const { error } = await upsert(rows);
+    if (error && !isQuotaError(error)) throw error;
+    if (error) {
+      // Removing a row the server has always passes. One refused was never
+      // there (created and deleted while the account was full): nothing to remove.
+      for (let j = 0; j < rows.length; j++) {
+        const { error: alone } = await upsert([rows[j]]);
+        if (alone && !isQuotaError(alone)) throw alone;
+      }
+    }
+    await markSent(batch);
+    setState(await countPending());
+  }
+  return gone.length;
 }
 
 /* ---------- Pull ---------- */
@@ -218,7 +342,7 @@ function stable(value: unknown): string {
 }
 
 function withoutCover(record: Record<string, unknown>) {
-  const { coverImage: _i, coverPath: _p, coverHash: _h, ...rest } = record;
+  const { coverImage: _i, coverPath: _p, coverHash: _h, coverOnlyHere: _o, ...rest } = record;
   return rest;
 }
 
@@ -228,6 +352,8 @@ function withoutCover(record: Record<string, unknown>) {
  */
 async function remoteCover(storyId: string, data: Record<string, unknown>): Promise<{ blob?: Blob; same: boolean }> {
   const local = await db.stories.get(storyId);
+  // The cover stayed on the device that sent it: keep the one here, if any.
+  if (data.coverOnlyHere) return { blob: local?.coverImage, same: true };
   if (typeof data.coverPath !== 'string') return { same: !local?.coverImage };
   if (local?.coverImage && (await syncDb.covers.get(storyId))?.hash === data.coverHash) return { blob: local.coverImage, same: true };
   const { data: blob, error } = await supabase!.storage.from('covers').download(data.coverPath);
@@ -237,7 +363,12 @@ async function remoteCover(storyId: string, data: Record<string, unknown>): Prom
 }
 
 async function applyRemote(rows: Row[]) {
-  const waiting = new Set(await syncDb.outbox.where('key').anyOf(rows.map((r) => recordKey(r.kind, r.id))).primaryKeys());
+  const keys = rows.map((r) => recordKey(r.kind, r.id));
+  // Records set aside for their size are newer here than on the server too.
+  const waiting = new Set([
+    ...(await syncDb.outbox.where('key').anyOf(keys).primaryKeys()),
+    ...(await syncDb.held.where('key').anyOf(keys).primaryKeys()),
+  ]);
   const incoming = rows.filter((r) => !waiting.has(recordKey(r.kind, r.id)));
   if (!incoming.length) return;
 
@@ -301,8 +432,14 @@ async function pull(fromStart = false) {
 
 let running: Promise<void> | null = null;
 let again = false;
+let forceAgain = false;
 let pulledOnce = false;
 let warnedFull = false;
+
+/** When the server last said the account is full; 0 while it is not. */
+let fullAt = 0;
+/** With the account full, new records are offered again only this often (deletions go at once). */
+const FULL_RETRY = 10 * 60 * 1000;
 
 /** The server refuses writes past the account's limit (trigger records_quota). */
 const isQuotaError = (err: unknown) => (err as { message?: unknown } | null)?.message === 'lirismo_quota';
@@ -315,30 +452,87 @@ function warnFull() {
     message: (
       <>
         <p>Suas histórias continuam guardadas neste aparelho, mas as mudanças novas não estão chegando à nuvem nem aos outros aparelhos.</p>
-        <p>Apagar versões antigas dos capítulos libera espaço. Se precisar de mais, escreva para contato@lirismo.com.br.</p>
+        <p>Apagar histórias, capítulos ou fichas que você não usa mais libera espaço. Se precisar de mais, escreva para contato@lirismo.com.br.</p>
       </>
     ),
   });
 }
 
-async function syncOnce() {
+const quoted = (text: unknown) => `“${String(text ?? '').trim() || 'sem título'}”`;
+
+/** "o capítulo “Um” (de “A história”)", for the warning about records set aside. */
+async function describeHeld({ kind, id }: HeldItem) {
+  const record = (await db.table(kind).get(id)) as Record<string, unknown> | undefined;
+  if (!record) return null;
+  let storyId = record.storyId;
+  let what: string;
+  if (kind === 'versions') {
+    const chapter = await db.chapters.get(String(record.chapterId));
+    storyId = chapter?.storyId;
+    what = `uma versão guardada do capítulo ${quoted(chapter?.title)}`;
+  } else {
+    const noun = { stories: 'a história', chapters: 'o capítulo', entries: 'a ficha', scenes: 'a cena', threads: 'o fio' }[kind];
+    what = `${noun} ${quoted(record.title)}`;
+  }
+  const story = kind === 'stories' ? undefined : await db.stories.get(String(storyId));
+  return story ? `${what}, de ${quoted(story.title)}` : what;
+}
+
+/** Tells, once per record or cover, what stays only on this device. */
+async function warnLeftOut() {
+  const held = (await syncDb.held.bulkGet([...newlyHeld])).filter((h): h is HeldItem => !!h);
+  const covers = await db.stories.bulkGet([...newlyLeftOut]);
+  newlyHeld.clear();
+  newlyLeftOut.clear();
+  const names = (await Promise.all(held.map(describeHeld))).filter((n): n is string => !!n);
+  const titles = covers.filter((s): s is Story => !!s).map((s) => quoted(s.title));
+  if (!names.length && !titles.length) return;
+  tell({
+    title: 'Algo ficou só neste aparelho',
+    message: (
+      <>
+        {names.length > 0 && (
+          <>
+            <p>Passou do tamanho máximo de 5 MB por item, e não vai para a nuvem:</p>
+            <ul>{names.map((n) => <li key={n}>{n}</li>)}</ul>
+            <p>Continua guardado aqui. Se ficar menor (por exemplo, dividido em dois capítulos), volta a sincronizar sozinho.</p>
+          </>
+        )}
+        {titles.length > 0 && (
+          <p>
+            {titles.length === 1 ? `A capa de ${titles[0]} ficou` : `As capas de ${titles.join(', ')} ficaram`} só neste aparelho: a conta guarda até 50 imagens
+            na nuvem, contando a foto e a capa do perfil. Tirar a capa de outra história abre espaço, e então ela sobe sozinha.
+          </p>
+        )}
+      </>
+    ),
+  });
+}
+
+async function syncOnce(force: boolean) {
   if (!supabase || !linkedUser || session?.user.id !== linkedUser) return;
   if (!navigator.onLine) return setState({ status: 'offline' });
   setState({ status: 'syncing' });
   try {
     if (await getMeta<boolean>('merging')) await merge();
     // A full account still receives what other devices sent.
-    let full = false;
     try {
-      await push();
+      // While full, only deletions go up between tries, unless the author asked.
+      const resting = fullAt > 0 && Date.now() - fullAt < FULL_RETRY && !force;
+      if (fullAt && (await pushDeletions()) > 0) fullAt = 0;
+      if (!resting || !fullAt) {
+        await push();
+        fullAt = 0;
+      }
     } catch (err) {
       if (!isQuotaError(err)) throw err;
-      full = true;
+      fullAt = Date.now();
     }
     await pull();
     await queueOldCovers();
-    setState({ status: full ? 'full' : 'synced', lastSync: Date.now(), pending: await syncDb.outbox.count() });
-    if (full) warnFull();
+    setState({ status: fullAt ? 'full' : 'synced', lastSync: Date.now(), ...(await countPending()) });
+    if (fullAt) warnFull();
+    await warnLeftOut();
     if (!pulledOnce) {
       pulledOnce = true;
       purgeTrash();
@@ -349,16 +543,23 @@ async function syncOnce() {
   }
 }
 
-/** Syncs now; if a sync is already running, runs once more after it. */
-export function syncNow(): Promise<void> {
+/**
+ * Syncs now; if a sync is already running, runs once more after it.
+ * `force` (the author asked) skips the wait while the account is full.
+ */
+export function syncNow(force = false): Promise<void> {
   if (running) {
     again = true;
+    forceAgain ||= force;
     return running;
   }
   running = (async () => {
+    let forced = force;
     do {
       again = false;
-      await syncOnce();
+      await syncOnce(forced);
+      forced = forceAgain;
+      forceAgain = false;
     } while (again);
   })().finally(() => (running = null));
   return running;
@@ -392,12 +593,14 @@ async function link(userId: string) {
 async function unlink() {
   linkedUser = null;
   pulledOnce = false;
-  await syncDb.transaction('rw', syncDb.outbox, syncDb.meta, syncDb.covers, async () => {
+  fullAt = 0;
+  await syncDb.transaction('rw', [syncDb.outbox, syncDb.meta, syncDb.covers, syncDb.held], async () => {
     await syncDb.outbox.clear();
     await syncDb.meta.clear();
     await syncDb.covers.clear();
+    await syncDb.held.clear();
   });
-  setState({ linked: false, pending: 0, status: 'idle', lastSync: undefined });
+  setState({ linked: false, pending: 0, held: 0, status: 'idle', lastSync: undefined });
 }
 
 let handledUser: string | null | undefined;
@@ -486,10 +689,10 @@ export async function startSync() {
   }
 
   linkedUser = (await getMeta<string>('userId')) ?? null;
-  setState({ linked: !!linkedUser, pending: await syncDb.outbox.count() });
+  setState({ linked: !!linkedUser, ...(await countPending()) });
   purge();
   setInterval(purge, HOUR);
-  setInterval(syncNow, 60 * 1000);
+  setInterval(() => syncNow(), 60 * 1000);
   window.addEventListener('online', () => syncNow());
   window.addEventListener('offline', () => state.linked && setState({ status: 'offline' }));
   document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && syncNow());
@@ -562,10 +765,11 @@ async function reportAuthError() {
 
 /* ---------- Leaving the account ---------- */
 
-/** Local changes not yet on the server; tries to send them first. */
+/** Local changes not yet on the server (or that never fit there); tries to send them first. */
 export async function unsentChanges() {
-  if (linkedUser) await syncNow();
-  return syncDb.outbox.count();
+  if (linkedUser) await syncNow(true);
+  const { pending, held } = await countPending();
+  return pending + held;
 }
 
 /** Erases this browser's stories and drafts. */

@@ -2,12 +2,21 @@ import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react
 import type { AuthError } from '@supabase/supabase-js';
 import { Modal } from './Modal';
 import { Icon } from './Icon';
-import { tell } from './Ask';
+import { ask, tell } from './Ask';
 import { Turnstile } from './Turnstile';
 import { appUrl, EMAIL_LOGIN, GOOGLE_LOGIN, supabase, TURNSTILE_SITE_KEY } from '../sync/supabase';
 import { isLeakedPassword } from '../lib/leakedPassword';
 import './AccountMenu.css';
-import { finishRecovery, getAccountState, pendingLabel, signOut, subscribeAccount, unsentChanges } from '../sync/engine';
+import {
+  deleteAccount,
+  eraseLocal,
+  finishRecovery,
+  getAccountState,
+  pendingLabel,
+  signOut,
+  subscribeAccount,
+  unsentChanges,
+} from '../sync/engine';
 
 export const useAccount = () => useSyncExternalStore(subscribeAccount, getAccountState);
 
@@ -352,6 +361,74 @@ export function SignOutDialog({ onClose }: { onClose: () => void }) {
           Apagar deste aparelho
         </button>
       </div>
+    </Modal>
+  );
+}
+
+/** Deleting the account: everything in the cloud goes, and this browser's copy is the author's call. */
+export function DeleteAccountDialog({ email, onClose }: { email: string; onClose: () => void }) {
+  const [typed, setTyped] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const matches = typed.trim().toLowerCase() === email.toLowerCase();
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!matches) return setError('O e-mail não confere com o da conta.');
+    if (!navigator.onLine) return setError('Sem conexão com a internet. Tente de novo quando ela voltar.');
+    setBusy(true);
+    setError('');
+    try {
+      await deleteAccount();
+    } catch (err) {
+      console.warn('Excluir a conta falhou', err);
+      setBusy(false);
+      return setError(navigator.onLine ? 'Não deu para excluir a conta agora. Tente de novo em instantes.' : 'Sem conexão com a internet. Tente de novo quando ela voltar.');
+    }
+    onClose();
+    const erase = await ask({
+      title: 'Conta excluída',
+      message: (
+        <>
+          <p>A conta e as histórias que estavam na nuvem foram apagadas.</p>
+          <p>Quer deixar neste aparelho uma cópia das histórias, para continuar usando sem conta?</p>
+        </>
+      ),
+      confirm: 'Apagar deste aparelho',
+      cancel: 'Manter uma cópia',
+      danger: true,
+    });
+    if (erase) await eraseLocal();
+  }
+
+  return (
+    <Modal title="Excluir minha conta" onClose={onClose} locked={busy}>
+      <form className="account-form" onSubmit={submit}>
+        <div className="ask-message">
+          <p>Isso apaga a sua conta e tudo o que está guardado nela na nuvem: histórias, capítulos, versões, fichas, cenas, fios e capas. Não dá para desfazer.</p>
+          <p>Os outros aparelhos em que você entrou deixam de sincronizar, mas o que já está neles continua lá.</p>
+        </div>
+        <label className="field">
+          <span>Para confirmar, escreva o e-mail da conta</span>
+          <input
+            className="input"
+            type="email"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={email}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+          />
+        </label>
+        {error && <p role="alert" className="form-error">{error}</p>}
+        <div className="dialog-actions">
+          <button type="button" className="btn btn-ghost" disabled={busy} onClick={onClose}>Cancelar</button>
+          <button type="submit" className="btn btn-solid-danger" disabled={busy || !matches}>
+            <Icon name="trash" size={16} />
+            {busy ? 'Excluindo…' : 'Excluir a conta'}
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }

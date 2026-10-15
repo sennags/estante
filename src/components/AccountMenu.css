@@ -73,6 +73,18 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+/* Out of the way: below the everyday buttons, small and quiet. */
+.account-delete {
+  align-self: flex-start;
+  min-height: 32px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-4);
+}
+.account-delete:hover {
+  color: var(--danger);
+}
 
 /* Sign-in and password dialogs */
 .account-form {

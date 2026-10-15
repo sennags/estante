@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { SignInDialog, SignOutDialog, useAccount } from './AccountDialogs';
+import { DeleteAccountDialog, SignInDialog, SignOutDialog, useAccount } from './AccountDialogs';
 import { pendingLabel, syncNow, type AccountState } from '../sync/engine';
 import { relativeTime } from '../lib/text';
 import './AccountMenu.css';
@@ -30,6 +30,7 @@ export function AccountMenu() {
   const [open, setOpen] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,9 +93,19 @@ export function AccountMenu() {
               Sair
             </button>
           </div>
+          <button
+            className="link-btn account-delete"
+            onClick={() => {
+              setOpen(false);
+              setDeleting(true);
+            }}
+          >
+            Excluir minha conta
+          </button>
         </div>
       )}
       {signingOut && <SignOutDialog onClose={() => setSigningOut(false)} />}
+      {deleting && <DeleteAccountDialog email={account.email} onClose={() => setDeleting(false)} />}
     </div>
   );
 }

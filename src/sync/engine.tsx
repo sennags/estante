@@ -503,20 +503,37 @@ export async function unsentChanges() {
   return syncDb.outbox.count();
 }
 
+/** Erases this browser's stories and drafts. */
+export async function eraseLocal() {
+  await db.transaction('rw', SYNCED_TABLES.map((t) => db.table(t)), async (tx) => {
+    markFromSync(tx.idbtrans);
+    await Promise.all(SYNCED_TABLES.map((t) => db.table(t).clear()));
+  });
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith('lirismo:'))
+    .forEach((k) => localStorage.removeItem(k));
+}
+
 /** Signs out; without `keepCopy`, also erases this browser's stories. */
 export async function signOut(keepCopy: boolean) {
   await unlink();
-  if (!keepCopy) {
-    await db.transaction('rw', SYNCED_TABLES.map((t) => db.table(t)), async (tx) => {
-      markFromSync(tx.idbtrans);
-      await Promise.all(SYNCED_TABLES.map((t) => db.table(t).clear()));
-    });
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith('lirismo:'))
-      .forEach((k) => localStorage.removeItem(k));
-  }
+  if (!keepCopy) await eraseLocal();
   handledUser = null;
   await supabase?.auth.signOut({ scope: 'local' });
+}
+
+/**
+ * Deletes the account, its stories in the cloud and its covers (Edge Function
+ * supabase/functions/excluir-conta), then signs out. This browser's copy stays
+ * until eraseLocal().
+ */
+export async function deleteAccount() {
+  const { error } = await supabase!.functions.invoke('excluir-conta', { method: 'POST' });
+  if (error) throw error;
+  await unlink();
+  handledUser = null;
+  // The server no longer knows the session; signing out only clears it here.
+  await supabase!.auth.signOut({ scope: 'local' });
 }
 
 export const pendingLabel = (n: number) => plural(n, 'mudança ainda não enviada', 'mudanças ainda não enviadas');

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { COVER_COLORS, createStory, db, STATUS_LABEL, storyStatus, TRASH_DAYS, trashStory, type Story, type StoryStatus } from '../db';
+import { shrinkCover } from '../lib/image';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -10,7 +11,8 @@ type Props = {
   onClose: () => void;
 };
 
-const MAX_COVER_BYTES = 5 * 1024 * 1024;
+// The picked image is shrunk before it is kept, so a large phone photo is fine.
+const MAX_COVER_BYTES = 15 * 1024 * 1024;
 const COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
@@ -126,12 +128,16 @@ export function StoryDialog({ story, onClose }: Props) {
     navigate('/');
   }
 
-  function pickImage(file?: File) {
+  async function pickImage(file?: File) {
     if (!file) return;
     if (!COVER_TYPES.includes(file.type)) return setError('Use uma imagem JPG, PNG ou WebP.');
-    if (file.size > MAX_COVER_BYTES) return setError('A imagem precisa ter até 5 MB.');
+    if (file.size > MAX_COVER_BYTES) return setError('A imagem precisa ter até 15 MB.');
     setError('');
-    set('coverImage', file);
+    try {
+      set('coverImage', await shrinkCover(file));
+    } catch {
+      setError('Não deu para abrir esta imagem. Tente outra, em JPG, PNG ou WebP.');
+    }
   }
 
   if (confirmTrash && story) {
@@ -216,7 +222,7 @@ export function StoryDialog({ story, onClose }: Props) {
               <span id="cover-hint" className="cover-hint">
                 JPG, PNG ou WebP
                 <br />
-                até 5 MB
+                até 15 MB
                 <br />
                 ideal 600 × 900 px
               </span>

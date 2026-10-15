@@ -92,9 +92,16 @@ create trigger records_quota_update after update on records
   for each statement execute function records_quota();
 
 -- Capas em imagem: bucket privado, caminho {user_id}/{storyId}.
+-- O app reduz cada imagem no navegador antes de enviar (capa do livro em até
+-- 400 × 576 px, foto 256 × 256, capa do perfil 960 × 320, sempre JPEG): todas
+-- ficam bem abaixo de 1 MB.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('covers', 'covers', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+values ('covers', 'covers', false, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
+-- ATENÇÃO: o update abaixo só pode rodar DEPOIS que o app que reduz as capas
+-- estiver no ar (PR "capas-menores"). Antes disso, quem ainda tem uma capa
+-- grande não consegue sincronizar. Baixa o limite de 5 MB para 1 MB.
+update storage.buckets set file_size_limit = 1048576 where id = 'covers';
 
 -- No máximo 50 capas por conta (trocar uma capa que já existe passa sempre).
 -- Fica num schema que a API não publica; a regra de "enviar" não pode contar

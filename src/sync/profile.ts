@@ -3,39 +3,59 @@ import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
 /*
- * The author's name and photo, kept with the account (Supabase user
+ * The author's name, photo and cover, kept with the account (Supabase user
  * metadata, under lirismo_* keys so a Google sign-in does not overwrite
- * them). The photo itself goes to Storage, in the covers bucket at
- * {user_id}/perfil: no new rules, and deleting the account removes it with
- * the covers. It takes one of the account's 50 cover slots.
+ * them). The images go to Storage, in the covers bucket at
+ * {user_id}/perfil and {user_id}/capa-perfil: no new rules, and deleting the
+ * account removes them with the book covers. Each takes one of the
+ * account's 50 cover slots.
  */
+
+/** An image the author saved; `v` changes with every new one. */
+export type StoredImage = { path: string; v: number };
 
 export type Profile = {
   userId: string;
   /** The name the author chose, or the one from Google. */
   name: string;
   /** Their own photo in Storage; `false` when they took the photo out. */
-  photo?: { path: string; v: number } | false;
+  photo?: StoredImage | false;
   /** The Google account photo, shown until they choose one. */
   googlePhoto?: string;
+  /** The image on the cover of the account card; unset shows the green cover. */
+  banner?: StoredImage;
 };
 
-/** The square the author chose in the photo, in the image's own pixels. */
-export type Crop = { x: number; y: number; size: number };
+/** The part of the image the author chose, in the image's own pixels. */
+export type Crop = { x: number; y: number; width: number; height: number };
+
+/** The two images of a profile: what they are cut to and where they live. */
+const IMAGES = {
+  photo: { file: 'perfil', meta: 'lirismo_photo', cache: 'lirismo:foto', width: 256, height: 256, quality: 0.86 },
+  banner: { file: 'capa-perfil', meta: 'lirismo_banner', cache: 'lirismo:capa-perfil', width: 960, height: 320, quality: 0.82 },
+} as const;
+export type ImageKind = keyof typeof IMAGES;
+
+/** Width over height of each kind, for the editor's frame. */
+export const IMAGE_ASPECT: Record<ImageKind, number> = {
+  photo: IMAGES.photo.width / IMAGES.photo.height,
+  banner: IMAGES.banner.width / IMAGES.banner.height,
+};
 
 export const NAME_MAX = 60;
-const PHOTO_SIZE = 256;
-const CACHE_KEY = 'lirismo:foto';
+
+const stored = (v: unknown): StoredImage | undefined =>
+  v && typeof v === 'object' && typeof (v as StoredImage).path === 'string' ? (v as StoredImage) : undefined;
 
 export function profileFrom(user: User): Profile {
   const m = (user.user_metadata ?? {}) as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
-  const photo = m.lirismo_photo;
   return {
     userId: user.id,
     name: str(m.lirismo_name) || str(m.full_name) || str(m.name),
-    photo: photo === false ? false : photo && typeof photo === 'object' ? (photo as { path: string; v: number }) : undefined,
+    photo: m.lirismo_photo === false ? false : stored(m.lirismo_photo),
     googlePhoto: str(m.avatar_url) || str(m.picture) || undefined,
+    banner: stored(m.lirismo_banner),
   };
 }
 
@@ -46,17 +66,17 @@ export function initials(name: string, email: string) {
   return letters.toUpperCase();
 }
 
-/** A square JPEG of the chosen part of the image (the middle, without a crop). */
-async function squarePhoto(file: Blob, crop?: Crop): Promise<Blob> {
+/** A JPEG of the chosen part of the image, at the kind's size. */
+async function cutImage(file: Blob, kind: ImageKind, crop: Crop): Promise<Blob> {
+  const { width, height, quality } = IMAGES[kind];
   const bitmap = await createImageBitmap(file);
-  const side = Math.min(bitmap.width, bitmap.height);
-  const c = crop ?? { x: (bitmap.width - side) / 2, y: (bitmap.height - side) / 2, size: side };
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = PHOTO_SIZE;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(bitmap, c.x, c.y, c.size, c.size, 0, 0, PHOTO_SIZE, PHOTO_SIZE);
+  ctx.drawImage(bitmap, crop.x, crop.y, crop.width, crop.height, 0, 0, width, height);
   bitmap.close();
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
   if (!blob) throw new Error('canvas');
   return blob;
 }
@@ -69,50 +89,59 @@ const toDataUrl = (blob: Blob) =>
     reader.readAsDataURL(blob);
   });
 
-const cacheKey = (photo: { path: string; v: number }) => `${photo.path}?${photo.v}`;
+const versionKey = (image: StoredImage) => `${image.path}?${image.v}`;
 
-function readCache(photo: { path: string; v: number }): string | null {
+/** Which kind an image is, from its path. */
+const kindOf = (image: StoredImage): ImageKind => (image.path.endsWith(`/${IMAGES.banner.file}`) ? 'banner' : 'photo');
+
+function readCache(image: StoredImage): string | null {
   try {
-    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? 'null') as { key: string; url: string } | null;
-    return cached?.key === cacheKey(photo) ? cached.url : null;
+    const cached = JSON.parse(localStorage.getItem(IMAGES[kindOf(image)].cache) ?? 'null') as { key: string; url: string } | null;
+    return cached?.key === versionKey(image) ? cached.url : null;
   } catch {
     return null;
   }
 }
 
-function writeCache(photo: { path: string; v: number }, url: string) {
+function writeCache(image: StoredImage, url: string) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ key: cacheKey(photo), url }));
+    localStorage.setItem(IMAGES[kindOf(image)].cache, JSON.stringify({ key: versionKey(image), url }));
   } catch {
     // Full or blocked: it is downloaded again next time.
   }
 }
 
+/** Forgets the downloaded photo and cover (when leaving the account). */
 export function forgetPhoto() {
   try {
-    localStorage.removeItem(CACHE_KEY);
+    for (const kind of Object.values(IMAGES)) localStorage.removeItem(kind.cache);
   } catch {
     // Nothing to forget.
   }
 }
 
-/** Saves a new photo: the chosen square, at 256 px. */
-export async function savePhoto(userId: string, file: Blob, crop?: Crop) {
-  const blob = await squarePhoto(file, crop);
-  const path = `${userId}/perfil`;
+/** Saves the chosen part of an image as the photo or the cover. */
+export async function saveImage(userId: string, kind: ImageKind, file: Blob, crop: Crop) {
+  const blob = await cutImage(file, kind, crop);
+  const path = `${userId}/${IMAGES[kind].file}`;
   const { error } = await supabase!.storage.from('covers').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
   if (error) throw error;
-  const photo = { path, v: Date.now() };
-  writeCache(photo, await toDataUrl(blob));
-  const { error: metaError } = await supabase!.auth.updateUser({ data: { lirismo_photo: photo } });
+  const image = { path, v: Date.now() };
+  writeCache(image, await toDataUrl(blob));
+  const { error: metaError } = await supabase!.auth.updateUser({ data: { [IMAGES[kind].meta]: image } });
   if (metaError) throw metaError;
 }
 
-/** Takes the photo out (the Google one does not come back). */
-export async function removePhoto(userId: string) {
-  await supabase!.storage.from('covers').remove([`${userId}/perfil`]);
-  forgetPhoto();
-  const { error } = await supabase!.auth.updateUser({ data: { lirismo_photo: false } });
+/** Takes the photo or the cover out (the Google photo does not come back). */
+export async function removeImage(userId: string, kind: ImageKind) {
+  await supabase!.storage.from('covers').remove([`${userId}/${IMAGES[kind].file}`]);
+  try {
+    localStorage.removeItem(IMAGES[kind].cache);
+  } catch {
+    // Nothing to forget.
+  }
+  // Without a photo the initials show; without a cover, the green one.
+  const { error } = await supabase!.auth.updateUser({ data: { [IMAGES[kind].meta]: kind === 'photo' ? false : null } });
   if (error) throw error;
 }
 
@@ -123,19 +152,19 @@ export async function saveName(name: string) {
 
 const downloads = new Map<string, Promise<string | null>>();
 
-function download(photo: { path: string; v: number }) {
-  const key = cacheKey(photo);
+function download(image: StoredImage) {
+  const key = versionKey(image);
   if (!downloads.has(key)) {
     downloads.set(
       key,
       (async () => {
-        const { data, error } = await supabase!.storage.from('covers').download(photo.path);
+        const { data, error } = await supabase!.storage.from('covers').download(image.path);
         if (error || !data) {
           downloads.delete(key);
           return null;
         }
         const url = await toDataUrl(data);
-        writeCache(photo, url);
+        writeCache(image, url);
         return url;
       })(),
     );
@@ -143,25 +172,33 @@ function download(photo: { path: string; v: number }) {
   return downloads.get(key)!;
 }
 
-/** The photo to show: the author's own, Google's, or null for the initials. */
-export function usePhotoUrl(profile: Profile | undefined): string | null {
-  const own = profile?.photo || undefined;
-  const [url, setUrl] = useState<string | null>(() => (own ? readCache(own) : null));
+/** A saved image as a URL to show: from this device's cache, or downloaded once. */
+function useStoredImage(image: StoredImage | undefined): string | null {
+  const [url, setUrl] = useState<string | null>(() => (image ? readCache(image) : null));
 
   useEffect(() => {
-    if (!own) return setUrl(null);
-    const cached = readCache(own);
+    if (!image) return setUrl(null);
+    const cached = readCache(image);
     if (cached) return setUrl(cached);
     let alive = true;
-    download(own).then((u) => alive && setUrl(u));
+    download(image).then((u) => alive && setUrl(u));
     return () => {
       alive = false;
     };
-  }, [own?.path, own?.v]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [image?.path, image?.v]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!profile || profile.photo === false) return null;
-  return own ? url : profile.googlePhoto ?? null;
+  return image ? url : null;
 }
+
+/** The photo to show: the author's own, Google's, or null for the initials. */
+export function usePhotoUrl(profile: Profile | undefined): string | null {
+  const own = useStoredImage(profile?.photo || undefined);
+  if (!profile || profile.photo === false) return null;
+  return profile.photo ? own : profile.googlePhoto ?? null;
+}
+
+/** The cover image of the account card, or null for the green cover. */
+export const useBannerUrl = (profile: Profile | undefined) => useStoredImage(profile?.banner);
 
 /*
  * The @: unique per account, in the `profiles` table (supabase/schema.sql),

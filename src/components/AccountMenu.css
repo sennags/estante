@@ -77,8 +77,8 @@
 }
 .account-cover {
   position: relative;
-  height: 64px;
-  background: var(--accent);
+  height: 72px;
+  background: var(--accent) center / cover no-repeat;
   background-image: radial-gradient(circle at 85% -20%, rgba(255, 255, 255, 0.16), transparent 55%);
 }
 .account-chip {
@@ -90,8 +90,9 @@
   gap: 6px;
   padding: 3px 10px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.22);
-  color: var(--accent-ink);
+  /* Dark enough to read on any cover image. */
+  background: rgba(20, 18, 15, 0.5);
+  color: #fbf9f4;
   font-size: 12px;
   font-weight: 500;
 }
@@ -109,15 +110,17 @@
 .account-chip.is-full {
   background: var(--danger);
 }
+/* Centred under the cover: photo, name, @ and the numbers. */
 .account-card-body {
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   padding: 0 18px 14px;
 }
 .account-photo {
   display: inline-flex;
-  align-self: flex-start;
   margin: -32px 0 8px;
   border-radius: 50%;
   box-shadow: 0 0 0 4px var(--paper);
@@ -136,6 +139,7 @@
 }
 .account-stats {
   display: flex;
+  justify-content: center;
   gap: 22px;
   margin: 14px 0 0;
 }
@@ -164,7 +168,6 @@
   color: var(--danger);
 }
 .account-nudge {
-  align-self: flex-start;
   margin-top: 12px;
   padding: 4px 10px;
   border-radius: 12px;

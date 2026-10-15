@@ -7,7 +7,7 @@ import { DeleteAccountDialog, SignInDialog, SignOutDialog, useAccount } from '..
 import { tell } from '../components/Ask';
 import { PhotoCropDialog } from '../components/PhotoCropDialog';
 import { setHandle, syncNow } from '../sync/engine';
-import { HANDLE_MAX, handleAvailable, handleProblem, HandleTaken, NAME_MAX, removePhoto, saveHandle, type Crop, saveName, savePhoto, usePhotoUrl } from '../sync/profile';
+import { HANDLE_MAX, handleAvailable, handleProblem, HandleTaken, NAME_MAX, removeImage, saveHandle, saveImage, saveName, useBannerUrl, usePhotoUrl, type Crop, type ImageKind } from '../sync/profile';
 import { AUTO_SHEET, setSettings, SHEET_LABEL, THEME_LABEL, useSettings, type SheetColor, type Theme } from '../lib/settings';
 import '../components/AccountMenu.css';
 import './Library.css';
@@ -82,43 +82,46 @@ function SignInPrompt({ children }: { children: string }) {
 function ProfileSection() {
   const { email, profile } = useAccount();
   const photo = usePhotoUrl(profile);
+  const banner = useBannerUrl(profile);
   const [name, setName] = useState(profile?.name ?? '');
-  const [busy, setBusy] = useState<'' | 'photo' | 'name'>('');
+  const [busy, setBusy] = useState<'' | ImageKind | 'name'>('');
   const [saved, setSaved] = useState(false);
-  const [cropping, setCropping] = useState<File>();
+  const [cropping, setCropping] = useState<{ kind: ImageKind; file: File }>();
 
   // The name changed on another device, or the profile just arrived.
   useEffect(() => setName(profile?.name ?? ''), [profile?.name]);
 
   if (!email || !profile) return <SignInPrompt>Entre na sua conta para ter um perfil com foto e nome. Sem conta, as histórias ficam só neste aparelho.</SignInPrompt>;
 
-  function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
+  const pick = (kind: ImageKind) => (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (file) setCropping(file);
-  }
+    if (file) setCropping({ kind, file });
+  };
 
-  async function applyPhoto(file: File, crop: Crop) {
+  const WHAT: Record<ImageKind, string> = { photo: 'a foto', banner: 'a capa' };
+
+  async function apply(kind: ImageKind, file: File, crop: Crop) {
     setCropping(undefined);
-    if (!navigator.onLine) return tell({ title: 'Sem internet', message: 'A foto fica guardada na sua conta. Tente de novo quando a conexão voltar.' });
-    setBusy('photo');
+    if (!navigator.onLine) return tell({ title: 'Sem internet', message: 'A imagem fica guardada na sua conta. Tente de novo quando a conexão voltar.' });
+    setBusy(kind);
     try {
-      await savePhoto(profile!.userId, file, crop);
+      await saveImage(profile!.userId, kind, file, crop);
     } catch (err) {
-      console.warn('Trocar a foto falhou', err);
-      tell({ title: 'Não deu para trocar a foto', message: 'Tente outra imagem, em JPG, PNG ou WebP. Se a imagem estiver certa, tente de novo daqui a pouco.' });
+      console.warn('Trocar a imagem falhou', kind, err);
+      tell({ title: `Não deu para trocar ${WHAT[kind]}`, message: 'Tente outra imagem, em JPG, PNG ou WebP. Se a imagem estiver certa, tente de novo daqui a pouco.' });
     } finally {
       setBusy('');
     }
   }
 
-  async function dropPhoto() {
-    setBusy('photo');
+  async function drop(kind: ImageKind) {
+    setBusy(kind);
     try {
-      await removePhoto(profile!.userId);
+      await removeImage(profile!.userId, kind);
     } catch (err) {
-      console.warn('Tirar a foto falhou', err);
-      tell({ title: 'Não deu para tirar a foto', message: 'Tente de novo daqui a pouco.' });
+      console.warn('Tirar a imagem falhou', kind, err);
+      tell({ title: `Não deu para tirar ${WHAT[kind]}`, message: 'Tente de novo daqui a pouco.' });
     } finally {
       setBusy('');
     }
@@ -141,21 +144,45 @@ function ProfileSection() {
 
   return (
     <>
-      <div className="settings-card settings-photo">
-        <Avatar profile={profile} email={email} size={88} />
-        <div className="settings-photo-actions">
-          <label className={`btn btn-outline ${busy ? 'is-disabled' : ''}`}>
-            <Icon name="camera" size={16} />
-            {busy === 'photo' ? 'Salvando…' : 'Trocar foto'}
-            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={!!busy} onChange={pickPhoto} />
-          </label>
-          {photo && (
-            <button className="link-btn settings-link" disabled={!!busy} onClick={dropPhoto}>
-              Tirar a foto
-            </button>
-          )}
+      <div className="settings-card profile-head">
+        {/* Same look as the account card: the cover, with the photo over its edge. */}
+        <div className="profile-cover" style={banner ? { backgroundImage: `url(${banner})` } : undefined} />
+        <span className="profile-photo">
+          <Avatar profile={profile} email={email} size={88} />
+        </span>
+        <div className="profile-images">
+          <div className="profile-image-row">
+            <span className="field-label">Foto</span>
+            <label className={`btn btn-sm btn-outline ${busy ? 'is-disabled' : ''}`}>
+              <Icon name="camera" size={15} />
+              {busy === 'photo' ? 'Salvando…' : 'Trocar foto'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={!!busy} onChange={pick('photo')} />
+            </label>
+            {photo && (
+              <button className="link-btn settings-link" disabled={!!busy} onClick={() => drop('photo')}>
+                Tirar a foto
+              </button>
+            )}
+          </div>
+          <div className="profile-image-row">
+            <span className="field-label">Capa</span>
+            <label className={`btn btn-sm btn-outline ${busy ? 'is-disabled' : ''}`}>
+              <Icon name="image" size={15} />
+              {busy === 'banner' ? 'Salvando…' : profile.banner ? 'Trocar capa' : 'Pôr uma capa'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={!!busy} onChange={pick('banner')} />
+            </label>
+            {profile.banner && (
+              <button className="link-btn settings-link" disabled={!!busy} onClick={() => drop('banner')}>
+                Tirar a capa
+              </button>
+            )}
+          </div>
           <span className="settings-hint">
-            {profile.photo ? 'Ao trocar, você escolhe a parte da foto que aparece.' : profile.googlePhoto && profile.photo !== false ? 'Esta é a foto da sua conta Google.' : 'Sem foto, aparecem as suas iniciais.'}
+            {profile.photo || profile.banner
+              ? 'Ao trocar, você escolhe a parte da imagem que aparece.'
+              : profile.googlePhoto && profile.photo !== false
+                ? 'Esta é a foto da sua conta Google. A capa é opcional; sem ela, fica a verde.'
+                : 'Sem foto, aparece a sua inicial. A capa é opcional; sem ela, fica a verde.'}
           </span>
         </div>
       </div>
@@ -180,7 +207,14 @@ function ProfileSection() {
 
       <HandleForm userId={profile.userId} />
 
-      {cropping && <PhotoCropDialog file={cropping} onCancel={() => setCropping(undefined)} onDone={(crop) => applyPhoto(cropping, crop)} />}
+      {cropping && (
+        <PhotoCropDialog
+          file={cropping.file}
+          kind={cropping.kind}
+          onCancel={() => setCropping(undefined)}
+          onDone={(crop) => apply(cropping.kind, cropping.file, crop)}
+        />
+      )}
 
       <div className="settings-card">
         <span className="field-label">E-mail</span>

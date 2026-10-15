@@ -7,6 +7,7 @@ import { Icon } from '../components/Icon';
 import { Logo } from '../components/Logo';
 import { StoryDialog } from '../components/StoryDialog';
 import { AccountMenu } from '../components/AccountMenu';
+import { OldAddressNotice } from '../components/OldAddressNotice';
 import { chapterName, formatNumber, plural, relativeTime } from '../lib/text';
 import './Library.css';
 import './Trash.css';
@@ -69,6 +70,8 @@ export function Library() {
       </header>
 
       <main className="library-main">
+        <OldAddressNotice stories={stories.length} />
+
         {stories.length === 0 && (
           <section className="welcome">
             <h1>Sua estante está vazia</h1>

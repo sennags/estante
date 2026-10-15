@@ -1,0 +1,41 @@
+/* Notice on lirismo.pages.dev, at the top of the library */
+.old-address {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  margin-bottom: 32px;
+  padding: 18px 22px;
+  background: var(--brass-soft);
+  border: 1px solid var(--brass-line);
+  border-radius: 14px;
+}
+.old-address-text {
+  /* Wide enough that the buttons drop below a long text instead of squeezing it. */
+  flex: 1 1 420px;
+  min-width: 0;
+}
+.old-address-text h2 {
+  margin: 0 0 4px;
+  font-family: var(--serif-display);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.old-address-text p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.old-address-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .old-address {
+    margin-bottom: 20px;
+    padding: 16px;
+  }
+}

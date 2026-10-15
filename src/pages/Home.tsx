@@ -7,7 +7,7 @@ import { Icon } from '../components/Icon';
 import { Logo } from '../components/Logo';
 import { AccountMenu } from '../components/AccountMenu';
 import { useAccount } from '../components/AccountDialogs';
-import { GENRES } from '../lib/genres';
+import { GenreSearch } from '../components/GenreSearch';
 import { chapterName, plural } from '../lib/text';
 import { useReadingProgress } from '../lib/reading';
 import { getExcerpts, listFeed, usePublishedCover, type FeedChapter, type FeedItem } from '../sync/community';
@@ -81,14 +81,7 @@ export function Home() {
         <WritingBand signedIn={!!account.email} />
 
         {account.configured && (
-          <div className="home-genres" role="group" aria-label="Filtrar por gênero">
-            <button className={`home-chip ${genre ? '' : 'is-on'}`} aria-pressed={!genre} onClick={() => setGenre('')}>Tudo</button>
-            {GENRES.map((g) => (
-              <button key={g} className={`home-chip ${genre === g ? 'is-on' : ''}`} aria-pressed={genre === g} onClick={() => setGenre(g)}>
-                {g}
-              </button>
-            ))}
-          </div>
+          <GenreSearch value={genre} onChange={setGenre} />
         )}
 
         {feed === undefined && <p className="home-quiet">Buscando os lançamentos…</p>}

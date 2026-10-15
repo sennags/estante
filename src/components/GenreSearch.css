@@ -1,0 +1,68 @@
+.genre-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 28px 0 8px;
+}
+.genre-search-field {
+  width: min(360px, 100%);
+}
+.genre-search-label {
+  color: var(--ink-4);
+  font-size: 14px;
+}
+.genre-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--ground);
+  font-size: 14px;
+}
+.genre-tag-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.genre-tag-clear:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+.genre-options {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: min(360px, 100%);
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+}
+.genre-options li {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.genre-options li.is-active {
+  background: var(--accent-soft);
+}
+.genre-options .genre-none {
+  color: var(--ink-4);
+  cursor: default;
+}

@@ -1,0 +1,64 @@
+# Aviso de espaço: o plano grátis do Supabase tem 500 MB de banco e 1 GB de
+# Storage, divididos entre todas as contas. Todo dia, mede os dois; passando do
+# limite (70%), a execução falha e o GitHub manda e-mail.
+#
+# O repositório é público, então o log mostra só as porcentagens.
+# Para testar o e-mail: Actions → Espaço → Run workflow, com limite 1.
+
+name: Espaço
+
+on:
+  schedule:
+    - cron: '30 6 * * *' # meia hora depois do backup
+  workflow_dispatch:
+    inputs:
+      limite:
+        description: 'Avisar a partir de quantos % (de 1 a 100)'
+        default: '70'
+
+permissions: {}
+
+jobs:
+  espaco:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      RAW_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      LIMITE: ${{ inputs.limite || '70' }}
+    steps:
+      - name: Medir o banco e as capas
+        run: |
+          set -euo pipefail
+          # Tira espaços e quebras de linha que vêm junto ao colar o valor.
+          DB_URL=$(printf '%s' "$RAW_DB_URL" | tr -d '[:space:]')
+          if [ -z "$DB_URL" ]; then echo "::error::Falta configurar SUPABASE_DB_URL"; exit 1; fi
+          echo "::add-mask::$DB_URL"
+          case "$LIMITE" in ''|*[!0-9]*) echo "::error::O limite tem que ser um número"; exit 1 ;; esac
+
+          # Plano grátis: 500 MB de banco e 1 GB de Storage (em potências de 10, para avisar antes).
+          # Numa variável primeiro: se o psql falhar, o set -e para aqui.
+          uso=$(psql "$DB_URL" -AtF ' ' -c "
+            select floor(100.0 * pg_database_size(current_database()) / 500e6)::int,
+                   floor(100.0 * coalesce((select sum((metadata->>'size')::bigint) from storage.objects), 0) / 1e9)::int")
+          read -r banco capas <<< "$uso"
+          case "$banco $capas" in *[!0-9\ ]*|' '*|*' ') echo "::error::Não deu para medir o espaço"; exit 1 ;; esac
+
+          echo "Banco: $banco% de 500 MB"
+          echo "Capas: $capas% de 1 GB"
+          {
+            echo "| | Uso do plano grátis |"
+            echo "|---|---|"
+            echo "| Banco | $banco% de 500 MB |"
+            echo "| Capas (Storage) | $capas% de 1 GB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          cheio=0
+          if [ "$banco" -ge "$LIMITE" ]; then
+            echo "::error title=Banco quase cheio::O banco está com $banco% dos 500 MB do plano grátis."
+            cheio=1
+          fi
+          if [ "$capas" -ge "$LIMITE" ]; then
+            echo "::error title=Storage quase cheio::As capas estão com $capas% de 1 GB do plano grátis."
+            cheio=1
+          fi
+          exit $cheio

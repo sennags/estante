@@ -16,6 +16,10 @@ create table if not exists records (
 
 create index if not exists records_user_rev on records (user_id, rev);
 
+-- Quando a linha foi gravada pela última vez (o trigger do rev atualiza). A
+-- limpeza das exclusões usa: ver "Exclusões antigas", abaixo.
+alter table records add column if not exists updated_at timestamptz not null default now();
+
 alter table records enable row level security;
 
 -- Só quem entrou na conta acessa a tabela (e só as próprias linhas, pela regra abaixo).
@@ -36,6 +40,7 @@ language plpgsql set search_path = public as $$
 begin
   perform pg_advisory_xact_lock(hashtext(new.user_id::text));
   new.rev := nextval('records_rev');
+  new.updated_at := now();
   return new;
 end;
 $$;
@@ -66,6 +71,8 @@ declare
 begin
   -- Sem usuário (painel do Supabase, service_role): sem limite.
   if auth.uid() is null then return null; end if;
+  -- Antes de contar, saem as exclusões antigas da conta (ver abaixo).
+  perform private.purge_tombstones(auth.uid());
   if tg_op = 'INSERT' then
     select count(*), coalesce(sum(pg_column_size(data)), 0) into added_rows, added_bytes from new_rows;
   else
@@ -79,6 +86,44 @@ begin
     raise exception 'lirismo_quota' using detail = format('%s registros, %s bytes', total_rows, total_bytes);
   end if;
   return null;
+end;
+$$;
+
+-- Exclusões antigas. Apagar vira uma linha com deleted = true, para os outros
+-- aparelhos ficarem sabendo; ela não ocupa espaço, mas conta nos 50 mil
+-- registros. Depois de 90 dias ela sai: a cada gravação da conta (acima, sem
+-- precisar de nada) e numa varredura diária de todas as contas, se o pg_cron
+-- estiver ligado (Database → Extensions → pg_cron; depois, rodar este arquivo
+-- de novo). Um aparelho que ficou mais de 60 dias sem sincronizar relê tudo
+-- (src/sync/engine.tsx), então não perde exclusão nenhuma. Elas continuam
+-- contando no limite enquanto existem: criar e apagar sem parar não enche o banco.
+create schema if not exists private;
+
+create index if not exists records_tombstones on records (user_id, updated_at) where deleted;
+
+-- Com uma conta (o trigger), limpa só a dela; sem conta (o pg_cron), todas.
+create or replace function private.purge_tombstones(owner uuid default null) returns bigint
+language plpgsql security definer set search_path = '' as $$
+declare
+  gone bigint;
+begin
+  if auth.uid() is not null then owner := auth.uid(); end if;
+  delete from public.records
+    where deleted and updated_at < now() - interval '90 days'
+      and (owner is null or user_id = owner);
+  get diagnostics gone = row_count;
+  return gone;
+end;
+$$;
+revoke all on function private.purge_tombstones(uuid) from public, anon;
+grant execute on function private.purge_tombstones(uuid) to authenticated;
+
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    -- Todo dia às 06:30 UTC, depois do backup das 06:00. Mesmo nome: rodar de novo só atualiza.
+    perform cron.schedule('lirismo-limpar-exclusoes', '30 6 * * *', 'select private.purge_tombstones()');
+  end if;
 end;
 $$;
 

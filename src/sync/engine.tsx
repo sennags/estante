@@ -428,6 +428,40 @@ async function pull(fromStart = false) {
   }
 }
 
+/**
+ * The server forgets deletions after 90 days (supabase/schema.sql). A device
+ * away for longer than this may have missed some, so it reads everything again.
+ */
+const STALE_AFTER = 60 * 24 * 60 * 60 * 1000;
+
+/**
+ * Reads the whole account and removes here what the server no longer has,
+ * except what is still waiting to go up (or set aside for its size).
+ */
+async function pullAll() {
+  const seen = await pull(true);
+  const keep = new Set([
+    ...seen,
+    ...((await syncDb.outbox.toCollection().primaryKeys()) as string[]),
+    ...((await syncDb.held.toCollection().primaryKeys()) as string[]),
+  ]);
+  const goneChapters: string[] = [];
+  const goneStories: string[] = [];
+  await db.transaction('rw', SYNCED_TABLES.map((t) => db.table(t)), async (tx) => {
+    markFromSync(tx.idbtrans);
+    for (const kind of SYNCED_TABLES) {
+      const ids = (await db.table(kind).toCollection().primaryKeys()) as string[];
+      const gone = ids.filter((id) => !keep.has(recordKey(kind, id)));
+      if (!gone.length) continue;
+      await db.table(kind).bulkDelete(gone);
+      if (kind === 'chapters') goneChapters.push(...gone);
+      if (kind === 'stories') goneStories.push(...gone);
+    }
+  });
+  await syncDb.covers.bulkDelete(goneStories);
+  if (goneChapters.length) window.dispatchEvent(new CustomEvent('lirismo:remote', { detail: { chapters: goneChapters } }));
+}
+
 /* ---------- Running the sync ---------- */
 
 let running: Promise<void> | null = null;
@@ -528,7 +562,10 @@ async function syncOnce(force: boolean) {
       if (!isQuotaError(err)) throw err;
       fullAt = Date.now();
     }
-    await pull();
+    const pulledAt = await getMeta<number>('pulledAt');
+    if (pulledAt && Date.now() - pulledAt > STALE_AFTER) await pullAll();
+    else await pull();
+    await setMeta('pulledAt', Date.now());
     await queueOldCovers();
     setState({ status: fullAt ? 'full' : 'synced', lastSync: Date.now(), ...(await countPending()) });
     if (fullAt) warnFull();

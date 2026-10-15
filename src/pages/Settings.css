@@ -96,46 +96,138 @@ fieldset.settings-card > legend {
   color: var(--accent);
 }
 
-/* Profile: the cover with the photo over its edge, as on the account card. */
+/* Profile: the cover with the photo over its edge, as on the account card.
+   Each one has its own button; the menu may hang past the card. */
 .profile-head {
   padding: 0 0 18px;
-  overflow: hidden;
   gap: 0;
 }
 .profile-cover {
+  position: relative;
   aspect-ratio: 3 / 1;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
   background: var(--accent) center / cover no-repeat;
   background-image: radial-gradient(circle at 85% -20%, rgba(255, 255, 255, 0.16), transparent 55%);
 }
 .profile-photo {
+  position: relative;
   display: inline-flex;
   align-self: center;
   margin: -44px 0 0;
   border-radius: 50%;
   box-shadow: 0 0 0 4px var(--surface);
 }
-.profile-images {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 20px 0;
+.profile-cover.is-busy,
+.profile-photo.is-busy > :first-child {
+  opacity: 0.6;
 }
-.profile-image-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
+.profile-hint {
+  margin: 12px 20px 0;
+  text-align: center;
 }
-.profile-image-row .field-label {
-  width: 44px;
+
+.image-menu-btn {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
 }
-.profile-image-row .btn.is-disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.image-menu-btn:disabled {
+  cursor: progress;
 }
-.profile-image-row .btn:focus-within {
+.image-menu-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+/* On the cover: a dark pill in the corner. */
+.profile-cover-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+}
+.profile-cover-btn .image-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #fffdf8;
+  background: rgba(20, 18, 15, 0.6);
+}
+.profile-cover-btn .image-menu-btn:hover:not(:disabled) {
+  background: rgba(20, 18, 15, 0.78);
+}
+/* On the photo: the whole circle is the button, with a camera on its edge. */
+.profile-photo-btn {
+  position: absolute;
+  inset: 0;
+}
+.profile-photo-btn .image-menu-btn {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: transparent;
+}
+.profile-photo-btn .image-menu-btn:hover:not(:disabled) {
+  background: rgba(20, 18, 15, 0.18);
+}
+.profile-photo-badge {
+  position: absolute;
+  right: -2px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--surface);
+  background: var(--ink);
+  box-shadow: 0 0 0 3px var(--surface);
+}
+.image-menu-list {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 230px;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-pop);
+}
+.profile-photo-btn .image-menu-list {
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.image-menu-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+.image-menu-list button:hover,
+.image-menu-list button:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+.image-menu-list .is-danger {
+  color: var(--danger);
 }
 .settings-link {
   min-height: 32px;

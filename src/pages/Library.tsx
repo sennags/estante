@@ -47,10 +47,10 @@ export function Library() {
   return (
     <div className="library">
       <header className="library-header">
-        <div className="brand">
+        <Link to="/" className="brand" style={{ color: 'inherit', textDecoration: 'none' }} title="Início">
           <Logo size={34} />
           <span className="brand-name">Lirismo</span>
-        </div>
+        </Link>
         <div className="library-actions">
           <label className="search">
             <Icon name="search" size={16} />

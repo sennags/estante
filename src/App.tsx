@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Library } from './pages/Library';
+import { Home } from './pages/Home';
+import { Read } from './pages/Read';
 import { StoryLayout, StoryIndex } from './pages/StoryLayout';
 import { ChapterEditor } from './pages/ChapterEditor';
 import { Universe } from './pages/Universe';
@@ -25,7 +27,9 @@ export function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<Library />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/biblioteca" element={<Library />} />
+        <Route path="/ler/:pubId/:chapterId?" element={<Read />} />
         <Route path="/lixeira" element={<Trash />} />
         <Route path="/configuracoes/:secao?" element={<Settings />} />
         <Route path="/historia/:storyId" element={<StoryLayout />}>

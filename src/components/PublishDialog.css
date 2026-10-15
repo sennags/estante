@@ -1,0 +1,72 @@
+.publish-note {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.publish-note p {
+  margin: 0 0 8px;
+}
+.publish-note a,
+.publish-live a {
+  color: var(--accent);
+}
+.publish-live {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  font-size: 15px;
+}
+.publish-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.publish-list {
+  list-style: none;
+  margin: 14px 0;
+  padding: 0;
+  max-height: min(50vh, 420px);
+  overflow-y: auto;
+  border-top: 1px solid var(--line-soft);
+}
+.publish-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.publish-chapter {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.publish-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.publish-state {
+  font-size: 13px;
+  color: var(--ink-4);
+}
+.publish-state.is-live {
+  color: var(--accent);
+}
+.publish-state.is-changed {
+  color: var(--brass-ink);
+}
+.publish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}

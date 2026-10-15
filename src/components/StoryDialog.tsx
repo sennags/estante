@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { COVER_COLORS, createStory, db, STATUS_LABEL, storyStatus, TRASH_DAYS, trashStory, type Story, type StoryStatus } from '../db';
 import { shrinkCover } from '../lib/image';
+import { GENRES, toGenre } from '../lib/genres';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -30,7 +31,7 @@ function savedFields(story?: Story): Draft {
   if (!story) return { title: '', synopsis: '', genre: '', coverColor: COVER_COLORS[0], status: 'escrita' };
   const { title, synopsis, genre, coverColor, coverImage } = story;
   const status = storyStatus(story);
-  return { title, synopsis, genre, coverColor, status, coverImage };
+  return { title, synopsis, genre: toGenre(genre), coverColor, status, coverImage };
 }
 
 function loadDraft(story?: Story): Draft | null {
@@ -40,7 +41,7 @@ function loadDraft(story?: Story): Draft | null {
     if (raw) {
       const draft: Draft = { ...savedFields(story), ...JSON.parse(raw), coverImage: draftImages.has(key) ? draftImages.get(key) : story?.coverImage };
       // A draft from before "Em planejamento" was retired.
-      return { ...draft, status: storyStatus(draft) };
+      return { ...draft, status: storyStatus(draft), genre: toGenre(draft.genre) };
     }
   } catch {
     // Unreadable storage: fall through.
@@ -99,7 +100,7 @@ export function StoryDialog({ story, onClose }: Props) {
     const data = {
       title: form.title.trim(),
       synopsis: form.synopsis.trim(),
-      genre: form.genre.trim(),
+      genre: toGenre(form.genre),
       coverColor: form.coverColor,
       coverImage: form.coverImage,
     };
@@ -125,7 +126,7 @@ export function StoryDialog({ story, onClose }: Props) {
     if (!story) return;
     clearDraft(story);
     await trashStory(story.id);
-    navigate('/');
+    navigate('/biblioteca');
   }
 
   async function pickImage(file?: File) {
@@ -176,7 +177,16 @@ export function StoryDialog({ story, onClose }: Props) {
             </label>
             <label className="field">
               <span>Gênero</span>
-              <input className="input" value={form.genre} onChange={(e) => set('genre', e.target.value)} placeholder="Romance, fantasia, contos…" />
+              <select className="select" value={form.genre} onChange={(e) => set('genre', e.target.value)}>
+                <option value="">Sem gênero</option>
+                {GENRES.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+              {/* Free text from before the list, with no genre of the list to stand for it. */}
+              {story?.genre && !toGenre(story.genre) && (
+                <span className="cover-hint">Antes estava “{story.genre}”. Escolha um da lista.</span>
+              )}
             </label>
           </div>
         </div>

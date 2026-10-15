@@ -1,0 +1,216 @@
+.reader {
+  min-height: 100dvh;
+}
+.reader-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px clamp(16px, 5vw, 72px);
+  border-bottom: 1px solid var(--line);
+}
+.reader-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+.reader-brand .brand-name {
+  font-size: 22px;
+}
+.reader-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--ink-3);
+  font-size: 14px;
+  text-decoration: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.reader-crumb:hover {
+  color: var(--ink);
+}
+
+.reader-main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 16px 72px;
+}
+
+/* The story's page */
+.reader-story-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  align-items: flex-start;
+}
+.reader-story-text {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.reader-story-text h1 {
+  font-size: 40px;
+  line-height: 1.08;
+  margin: 0;
+}
+.reader-author {
+  margin: 0;
+  color: var(--ink-3);
+}
+.reader-synopsis {
+  margin: 6px 0 0;
+  font-family: var(--serif-text);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-line;
+}
+.reader-meta {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--ink-4);
+}
+.reader-toc-title {
+  margin: 48px 0 8px;
+  font-size: 22px;
+}
+.reader-toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line-soft);
+}
+.reader-toc a {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink);
+  text-decoration: none;
+}
+.reader-toc a:hover {
+  background: var(--surface);
+}
+.reader-toc-n {
+  width: 24px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.reader-toc-t {
+  flex: 1;
+  font-family: var(--serif-display);
+  font-size: 18px;
+}
+.reader-toc-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--accent);
+}
+.reader-report {
+  margin-top: 40px;
+  font-size: 13px;
+  color: var(--ink-4);
+  text-align: center;
+}
+.reader-report a {
+  color: inherit;
+}
+
+/* A chapter: the book's type on a sheet, without pages */
+.reader-chapter {
+  max-width: 720px;
+}
+.reader-sheet {
+  background: var(--sheet-bg, var(--paper));
+  color: var(--sheet-ink, var(--text-ink));
+  border: 1px solid var(--sheet-edge, var(--paper-edge));
+  padding: clamp(28px, 7vw, 72px) clamp(20px, 8vw, 80px);
+}
+.reader-chapter-head {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.reader-chapter-head h1 {
+  margin: 8px 0 0;
+  font-family: var(--book-display);
+  font-size: 30px;
+  font-weight: 500;
+}
+.story-text {
+  font-family: var(--book-text);
+  font-size: 18px;
+  line-height: 1.7;
+  text-align: justify;
+}
+.story-text p {
+  margin: 0;
+  text-indent: 1.5em;
+}
+.story-text h3,
+.story-text h4 {
+  font-family: var(--book-display);
+  font-weight: 500;
+  margin: 1.4em 0 0.6em;
+  text-align: center;
+}
+.story-text h3 {
+  font-size: 22px;
+}
+.story-text h4 {
+  font-size: 19px;
+}
+.story-text blockquote {
+  margin: 1em 2em;
+  font-style: italic;
+}
+.story-text ul,
+.story-text ol {
+  margin: 0.6em 0;
+  text-align: left;
+}
+.story-text li p {
+  text-indent: 0;
+}
+.story-text hr {
+  border: 0;
+  margin: 1.6em auto;
+  width: 40%;
+  border-top: 1px solid currentColor;
+  opacity: 0.35;
+}
+.story-text-gap {
+  height: 2.4em;
+}
+.reader-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+.reader-end {
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .reader-story-text h1 {
+    font-size: 32px;
+  }
+  .story-text {
+    font-size: 17px;
+    text-align: left;
+  }
+}

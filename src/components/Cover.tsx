@@ -15,7 +15,7 @@ export function useCoverUrl(blob?: Blob) {
 
 type CoverProps = {
   story: Pick<Story, 'title' | 'genre' | 'coverColor' | 'coverImage'>;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
 };
 
 export function Cover({ story, size = 'md' }: CoverProps) {

@@ -132,7 +132,7 @@
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
-.account-email {
+.account-handle {
   font-size: 13px;
   color: var(--ink-4);
   overflow-wrap: anywhere;

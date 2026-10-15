@@ -314,7 +314,6 @@ function AccountSection() {
   );
 }
 
-
 /** A saved image (a data URL) as a file, to adjust it again in the editor. */
 function fileFrom(dataUrl: string): File {
   const [head, body] = dataUrl.split(',');

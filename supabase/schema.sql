@@ -246,7 +246,9 @@ create table if not exists publications (
   unique (user_id, story_id),
   unique (id, user_id)
 );
-create index if not exists publications_recent on publications (last_chapter_at desc) where chapter_count > 0;
+-- A ordem da Home, com o id para desempatar na paginação (community_feed).
+drop index if exists publications_recent;
+create index if not exists publications_feed on publications (last_chapter_at desc, id desc) where chapter_count > 0;
 
 create table if not exists published_chapters (
   publication_id uuid not null,
@@ -375,6 +377,67 @@ delete from publications p using records r
     and (r.deleted or r.data->>'deletedAt' is not null);
 delete from published_chapters c using records r
   where r.user_id = c.user_id and r.kind = 'chapters' and r.id = c.chapter_id and r.deleted;
+
+-- A Home: uma página de histórias, cada uma já resumida, sem baixar a lista
+-- de capítulos. `progress` é o que o leitor leu ({ "<id da publicação>":
+-- posição do último capítulo aberto }, guardado só no aparelho dele). A
+-- página seguinte começa depois de (before_at, before_id), a última linha da
+-- anterior. Roda com as regras de quem chama: lê só o que já é público.
+create index if not exists published_chapters_position on published_chapters (publication_id, position);
+
+drop function if exists public.community_feed(text, timestamptz, uuid, jsonb, int);
+create function public.community_feed(
+  genre_filter text default null,
+  before_at timestamptz default null,
+  before_id uuid default null,
+  progress jsonb default '{}'::jsonb,
+  page_size int default 20
+) returns table (
+  id uuid, title text, synopsis text, genre text, cover_color text, cover_path text, author_name text,
+  chapter_count int, last_chapter_at timestamptz, created_at timestamptz, handle text,
+  fresh_count int,          -- capítulos publicados nos últimos 7 dias
+  latest_position int,      -- o mais novo deles
+  read_count int,           -- capítulos até a posição lida
+  next_chapter_id text, next_position int, next_word_count int, next_excerpt text,  -- o próximo a ler
+  last_chapter_id text      -- para "Reler o último"
+)
+language sql stable set search_path = '' as $$
+  select p.id, p.title, p.synopsis, p.genre, p.cover_color, p.cover_path, p.author_name,
+    p.chapter_count, p.last_chapter_at, p.created_at, pr.handle,
+    f.fresh_count, f.latest_position, r.read_count,
+    n.chapter_id, n.position, n.word_count, n.excerpt,
+    l.chapter_id
+  from public.publications p
+  left join public.profiles pr on pr.user_id = p.user_id
+  cross join lateral (
+    select case when progress ->> p.id::text ~ '^[0-9]{1,5}$' then (progress ->> p.id::text)::int else 0 end as pos
+  ) rp
+  cross join lateral (
+    select count(*)::int as fresh_count, max(c.position) as latest_position
+    from public.published_chapters c
+    where c.publication_id = p.id and c.published_at > now() - interval '7 days'
+  ) f
+  cross join lateral (
+    select count(*)::int as read_count from public.published_chapters c
+    where c.publication_id = p.id and c.position <= rp.pos
+  ) r
+  left join lateral (
+    select c.chapter_id, c.position, c.word_count, c.excerpt from public.published_chapters c
+    where c.publication_id = p.id and c.position > rp.pos
+    order by c.position limit 1
+  ) n on true
+  left join lateral (
+    select c.chapter_id from public.published_chapters c
+    where c.publication_id = p.id order by c.position desc limit 1
+  ) l on true
+  where p.chapter_count > 0
+    and (genre_filter is null or p.genre = genre_filter)
+    and (before_at is null or (p.last_chapter_at, p.id) < (before_at, coalesce(before_id, 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid)))
+  order by p.last_chapter_at desc, p.id desc
+  limit least(greatest(coalesce(page_size, 20), 1), 50);
+$$;
+revoke all on function public.community_feed(text, timestamptz, uuid, jsonb, int) from public;
+grant execute on function public.community_feed(text, timestamptz, uuid, jsonb, int) to anon, authenticated;
 
 -- Limites por conta, à parte dos 20 MB da sincronização: 20 histórias
 -- publicadas e 300 capítulos, com 5 MB de texto (uns 150 capítulos de 3 mil

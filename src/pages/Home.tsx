@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, isInTrash } from '../db';
@@ -10,7 +10,7 @@ import { useAccount } from '../components/AccountDialogs';
 import { GenreSearch } from '../components/GenreSearch';
 import { chapterName, plural } from '../lib/text';
 import { useReadingProgress } from '../lib/reading';
-import { getExcerpts, listFeed, usePublishedCover, type FeedChapter, type FeedItem } from '../sync/community';
+import { listFeed, usePublishedCover, type FeedCursor, type FeedItem } from '../sync/community';
 import './Library.css';
 import './Home.css';
 
@@ -21,45 +21,65 @@ const WORDS_PER_MINUTE = 230;
 /**
  * The Home: the community's new chapters, one line per story, and above
  * them where the author stopped writing (or, without an account, an
- * invitation to start).
+ * invitation to start). Stories come a page at a time ("Carregar mais").
  */
 export function Home() {
   const account = useAccount();
   const [genre, setGenre] = useState('');
+  // undefined while the first page loads; null when it failed.
   const [feed, setFeed] = useState<FeedItem[] | null>();
-  const [excerpts, setExcerpts] = useState<Map<string, string>>(new Map());
-  const progress = useReadingProgress();
+  const [next, setNext] = useState<FeedCursor | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreFailed, setMoreFailed] = useState(false);
+  // Read when a page is asked for, without asking again when it changes:
+  // reading happens on other pages, and coming back loads the Home again.
+  const progress = useRef<Record<string, number>>({});
+  progress.current = useReadingProgress();
+  // Answers to an older request (another genre) are dropped.
+  const request = useRef(0);
 
   useEffect(() => {
     if (!account.configured) return setFeed(null);
-    let alive = true;
+    const mine = ++request.current;
     setFeed(undefined);
-    listFeed(genre || undefined).then(
-      (items) => alive && setFeed(items),
+    setNext(null);
+    setMoreFailed(false);
+    listFeed(genre || undefined, progress.current).then(
+      (page) => {
+        if (mine !== request.current) return;
+        setFeed(page.items);
+        setNext(page.next);
+      },
       (err) => {
         console.error(err);
-        if (alive) setFeed(null);
+        if (mine === request.current) setFeed(null);
       },
     );
-    return () => {
-      alive = false;
-    };
   }, [genre, account.configured]);
 
-  const lines = useMemo(() => (feed ?? []).map((item) => storyLine(item, progress[item.id] ?? 0)), [feed, progress]);
+  async function loadMore() {
+    if (!next || !feed) return;
+    const mine = request.current;
+    setLoadingMore(true);
+    setMoreFailed(false);
+    try {
+      const page = await listFeed(genre || undefined, progress.current, next);
+      if (mine !== request.current) return;
+      // A story that got a new chapter meanwhile could show up twice.
+      const have = new Set(feed.map((f) => f.id));
+      setFeed([...feed, ...page.items.filter((f) => !have.has(f.id))]);
+      setNext(page.next);
+    } catch (err) {
+      console.error(err);
+      setMoreFailed(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
-  // The first lines of the chapter each story would open on.
-  useEffect(() => {
-    const wanted = lines.filter((l) => l.next && !excerpts.has(`${l.item.id}/${l.next.chapter_id}`));
-    if (!wanted.length) return;
-    getExcerpts(wanted.map((l) => ({ publicationId: l.item.id, chapterId: l.next!.chapter_id }))).then(
-      (found) => setExcerpts((old) => new Map([...old, ...found])),
-      (err) => console.error(err),
-    );
-  }, [lines]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const recentWeek = lines.filter((l) => Date.now() - Date.parse(l.item.last_chapter_at) < WEEK);
-  const older = lines.filter((l) => !recentWeek.includes(l));
+  const items = feed ?? [];
+  const recentWeek = items.filter((f) => Date.now() - Date.parse(f.last_chapter_at) < WEEK);
+  const older = items.filter((f) => !recentWeek.includes(f));
 
   return (
     <div className="library home">
@@ -80,9 +100,7 @@ export function Home() {
       <main className="library-main home-main">
         <WritingBand signedIn={!!account.email} />
 
-        {account.configured && (
-          <GenreSearch value={genre} onChange={setGenre} />
-        )}
+        {account.configured && <GenreSearch value={genre} onChange={setGenre} />}
 
         {feed === undefined && <p className="home-quiet">Buscando os lançamentos…</p>}
         {feed === null && account.configured && (
@@ -96,8 +114,17 @@ export function Home() {
           </div>
         )}
 
-        {recentWeek.length > 0 && <Section title="Esta semana" lines={recentWeek} excerpts={excerpts} />}
-        {older.length > 0 && <Section title={recentWeek.length ? 'Antes' : 'Lançamentos'} lines={older} excerpts={excerpts} />}
+        {recentWeek.length > 0 && <Section title="Esta semana" items={recentWeek} />}
+        {older.length > 0 && <Section title={recentWeek.length ? 'Antes' : 'Lançamentos'} items={older} />}
+
+        {next && (
+          <div className="home-more">
+            <button className="btn btn-outline" disabled={loadingMore} onClick={loadMore}>
+              {loadingMore ? 'Carregando…' : 'Carregar mais'}
+            </button>
+            {moreFailed && <p className="home-quiet">Não deu para carregar. Confira a internet e tente de novo.</p>}
+          </div>
+        )}
       </main>
 
       <footer className="library-footer">
@@ -147,55 +174,36 @@ function WritingBand({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-type Line = {
-  item: FeedItem;
-  /** Chapters that came out this week. */
-  fresh: FeedChapter[];
-  /** The chapter the button opens: the next unread one, or the first. */
-  next?: FeedChapter;
-  read: number;
-  isNew: boolean;
-};
-
-function storyLine(item: FeedItem, read: number): Line {
-  const fresh = item.chapters.filter((c) => Date.now() - Date.parse(c.published_at) < WEEK);
-  const next = item.chapters.find((c) => c.position > read);
-  // Every chapter came out this week: the story itself is new.
-  const isNew = fresh.length === item.chapters.length;
-  return { item, fresh, next, read, isNew };
-}
-
-function Section({ title, lines, excerpts }: { title: string; lines: Line[]; excerpts: Map<string, string> }) {
+function Section({ title, items }: { title: string; items: FeedItem[] }) {
   return (
     <section className="home-section" aria-label={title}>
       <h2 className="home-day">{title}</h2>
       <ol className="home-list">
-        {lines.map((l) => (
-          <StoryRow key={l.item.id} line={l} excerpt={l.next ? excerpts.get(`${l.item.id}/${l.next.chapter_id}`) : undefined} />
+        {items.map((f) => (
+          <StoryRow key={f.id} item={f} />
         ))}
       </ol>
     </section>
   );
 }
 
-function StoryRow({ line, excerpt }: { line: Line; excerpt?: string }) {
-  const { item, fresh, next, read, isNew } = line;
+function StoryRow({ item }: { item: FeedItem }) {
   const cover = usePublishedCover(item.cover_path);
-  const handle = item.profiles?.handle;
-  const readCount = item.chapters.filter((c) => c.position <= read).length;
-  const started = read > 0;
-  const upToDate = started && !next;
+  const started = item.read_count > 0;
+  const upToDate = started && !item.next_chapter_id;
+  // Every chapter came out this week: the story itself is new.
+  const isNew = item.fresh_count === item.chapter_count;
 
   const pill = isNew
     ? 'história nova'
-    : fresh.length > 1
-      ? plural(fresh.length, 'capítulo novo', 'capítulos novos')
-      : fresh.length === 1
-        ? `capítulo ${fresh[0].position}`
+    : item.fresh_count > 1
+      ? plural(item.fresh_count, 'capítulo novo', 'capítulos novos')
+      : item.fresh_count === 1
+        ? `capítulo ${item.latest_position}`
         : null;
 
-  const target = next ?? item.chapters[item.chapters.length - 1];
-  const minutes = next ? Math.max(1, Math.round(next.word_count / WORDS_PER_MINUTE)) : 0;
+  const target = item.next_chapter_id ?? item.last_chapter_id;
+  const minutes = item.next_word_count ? Math.max(1, Math.round(item.next_word_count / WORDS_PER_MINUTE)) : 0;
 
   return (
     <li className="home-row">
@@ -208,44 +216,41 @@ function StoryRow({ line, excerpt }: { line: Line; excerpt?: string }) {
           {pill && <span className={`home-pill ${isNew ? 'is-new' : ''}`}>{pill}</span>}
         </div>
         <div className="home-row-meta">
-          {handle ? `@${handle}` : item.author_name}
+          {item.handle ? `@${item.handle}` : item.author_name}
           {item.genre && ` · ${item.genre}`} · {plural(item.chapter_count, 'capítulo', 'capítulos')}
         </div>
         {started ? (
           <>
-            <ProgressBar chapters={item.chapters} read={read} />
+            <ProgressBar total={item.chapter_count} read={item.read_count} />
             <div className="home-row-meta">
-              {upToDate ? 'Você está em dia' : `Você leu ${readCount} de ${plural(item.chapters.length, 'capítulo', 'capítulos')}`}
+              {upToDate ? 'Você está em dia' : `Você leu ${item.read_count} de ${plural(item.chapter_count, 'capítulo', 'capítulos')}`}
             </div>
           </>
         ) : (
-          excerpt && <p className="home-excerpt">{excerpt}</p>
+          item.next_excerpt && <p className="home-excerpt">{item.next_excerpt}</p>
         )}
       </div>
-      {target && (
-        <Link to={`/ler/${item.id}/${target.chapter_id}`} className={`btn btn-sm ${started && next ? 'btn-primary' : 'btn-outline'} home-row-action`}>
-          {upToDate ? 'Reler o último' : started ? `Ler o ${next!.position}` : 'Começar'}
-          {!upToDate && minutes > 0 && <span className="home-minutes">{minutes} min</span>}
-        </Link>
-      )}
+      <Link to={`/ler/${item.id}/${target}`} className={`btn btn-sm ${started && !upToDate ? 'btn-primary' : 'btn-outline'} home-row-action`}>
+        {upToDate ? 'Reler o último' : started ? `Ler o ${item.next_position}` : 'Começar'}
+        {!upToDate && minutes > 0 && <span className="home-minutes">{minutes} min</span>}
+      </Link>
     </li>
   );
 }
 
-function ProgressBar({ chapters, read }: { chapters: FeedChapter[]; read: number }) {
+function ProgressBar({ total, read }: { total: number; read: number }) {
   // Long stories get one bar, filled to the share read.
-  if (chapters.length > 24) {
-    const share = chapters.filter((c) => c.position <= read).length / chapters.length;
+  if (total > 24) {
     return (
       <span className="home-progress" aria-hidden="true">
-        <span className="home-progress-one"><span style={{ width: `${share * 100}%` }} /></span>
+        <span className="home-progress-one"><span style={{ width: `${(read / total) * 100}%` }} /></span>
       </span>
     );
   }
   return (
     <span className="home-progress" aria-hidden="true">
-      {chapters.map((c) => (
-        <span key={c.chapter_id} className={c.position <= read ? 'is-read' : ''} />
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} className={i < read ? 'is-read' : ''} />
       ))}
     </span>
   );

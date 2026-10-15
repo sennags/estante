@@ -86,7 +86,7 @@ jobs:
           ls -lh "$RUNNER_TEMP/lirismo-$stamp.tar.gz.age" | awk '{print "Tamanho:", $5}'
 
       - name: Guardar por 30 dias
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lirismo-${{ env.STAMP }}
           path: ${{ runner.temp }}/lirismo-${{ env.STAMP }}.tar.gz.age

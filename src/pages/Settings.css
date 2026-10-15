@@ -109,8 +109,8 @@ fieldset.settings-card > legend {
 }
 .profile-photo {
   display: inline-flex;
-  align-self: flex-start;
-  margin: -44px 0 0 20px;
+  align-self: center;
+  margin: -44px 0 0;
   border-radius: 50%;
   box-shadow: 0 0 0 4px var(--surface);
 }

@@ -220,6 +220,17 @@ export async function unpublishChapter(userId: string, publication: MyPublicatio
   if (error) throw error;
 }
 
+/**
+ * A story going to the trash leaves the community right away, cover and all.
+ * The server does the same once the change syncs (supabase/schema.sql), so a
+ * failure here, offline for one, only delays it.
+ */
+export async function unpublishTrashed(userId: string, storyId: string) {
+  const { error } = await supabase!.from('publications').delete().eq('user_id', userId).eq('story_id', storyId);
+  if (error) throw error;
+  await supabase!.storage.from('covers').remove([coverPath(userId, storyId)]);
+}
+
 export async function unpublishStory(userId: string, publication: MyPublication) {
   const { data, error } = await supabase!.from('publications').delete().eq('id', publication.id).select('story_id');
   if (error) throw error;

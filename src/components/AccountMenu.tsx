@@ -118,9 +118,9 @@ function AccountCard({ onClose, onSignOut }: { onClose: () => void; onSignOut: (
   const stats = useLiveQuery(async () => {
     const stories = (await db.stories.toArray()).filter((s) => !isInTrash(s));
     const ids = new Set(stories.map((s) => s.id));
-    const words = (await db.chapters.toArray()).reduce((n, c) => (ids.has(c.storyId) ? n + c.wordCount : n), 0);
-    const open = (await db.threads.where('status').equals('aberto').toArray()).filter((t) => ids.has(t.storyId)).length;
-    return { stories: stories.length, words, open };
+    const chapters = (await db.chapters.toArray()).filter((c) => ids.has(c.storyId));
+    const words = chapters.reduce((n, c) => n + c.wordCount, 0);
+    return { stories: stories.length, chapters: chapters.length, words };
   }, []);
   if (!account.email) return null;
   const name = account.profile?.name;
@@ -150,12 +150,12 @@ function AccountCard({ onClose, onSignOut }: { onClose: () => void; onSignOut: (
               <dd>{stats.stories}</dd>
             </div>
             <div>
-              <dt>palavras</dt>
-              <dd>{compact.format(stats.words)}</dd>
+              <dt>{stats.chapters === 1 ? 'capítulo' : 'capítulos'}</dt>
+              <dd>{stats.chapters}</dd>
             </div>
             <div>
-              <dt>{stats.open === 1 ? 'fio aberto' : 'fios abertos'}</dt>
-              <dd>{stats.open}</dd>
+              <dt>{stats.words === 1 ? 'palavra' : 'palavras'}</dt>
+              <dd>{compact.format(stats.words)}</dd>
             </div>
           </dl>
         )}

@@ -215,5 +215,187 @@ $$;
 revoke all on function public.handle_available(text) from public, anon;
 grant execute on function public.handle_available(text) to authenticated;
 
+-- Comunidade: as histórias publicadas, que qualquer pessoa lê, mesmo sem
+-- conta. Publicar guarda uma cópia do capítulo: mexer no rascunho não muda
+-- o que os leitores veem até o autor atualizar (src/sync/community.ts). Só
+-- publica quem tem @ (a referência a profiles exige). Para tirar do ar uma
+-- história denunciada: delete from publications where id = '<id>';
+-- (os capítulos vão junto, e a capa deixa de ser pública).
+create table if not exists publications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references profiles (user_id) on delete cascade,
+  story_id text not null check (length(story_id) <= 64),
+  title text not null check (length(title) between 1 and 200),
+  synopsis text not null default '' check (length(synopsis) <= 2000),
+  -- A mesma lista de src/lib/genres.ts: o filtro da Home depende dela. Para
+  -- mudar, trocar nos dois lugares (e aqui com drop/add da constraint).
+  genre text not null default '' check (genre in ('', 'Aventura', 'Conto', 'Distopia', 'Drama', 'Fanfic', 'Fantasia', 'Ficção científica',
+    'Ficção histórica', 'Humor', 'Infantil', 'Jovem adulto', 'Mistério', 'Não ficção', 'Poesia',
+    'Policial', 'Romance', 'Suspense', 'Terror', 'Outro')),
+  cover_color text not null default '#2F4A3F' check (cover_color ~ '^#[0-9A-Fa-f]{6}$'),
+  -- A capa em imagem é uma cópia em covers/{user_id}/publicada-{story_id}.
+  -- Só esse caminho: apontar para outro arquivo o tornaria público.
+  cover_path text check (cover_path = user_id::text || '/publicada-' || story_id),
+  author_name text not null default '' check (length(author_name) <= 60),
+  -- Os dois abaixo só o banco muda (pelo trigger dos capítulos).
+  chapter_count int not null default 0,
+  last_chapter_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (user_id, story_id),
+  unique (id, user_id)
+);
+create index if not exists publications_recent on publications (last_chapter_at desc) where chapter_count > 0;
+
+create table if not exists published_chapters (
+  publication_id uuid not null,
+  user_id uuid not null default auth.uid(),
+  chapter_id text not null check (length(chapter_id) <= 64),
+  position int not null check (position between 1 and 10000),
+  title text not null default '' check (length(title) <= 200),
+  content jsonb not null check (pg_column_size(content) <= 1024 * 1024),
+  word_count int not null default 0 check (word_count >= 0),
+  -- O começo do texto, para a Home mostrar sem baixar o capítulo.
+  excerpt text not null default '' check (length(excerpt) <= 300),
+  -- O updatedAt do capítulo no aparelho quando foi publicado: mais novo no
+  -- aparelho = "mudou depois de publicado".
+  source_updated_at bigint not null default 0,
+  published_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (publication_id, chapter_id),
+  -- O capítulo é sempre de uma história do mesmo autor.
+  foreign key (publication_id, user_id) references publications (id, user_id) on delete cascade
+);
+
+alter table publications enable row level security;
+alter table published_chapters enable row level security;
+
+-- Ler: todo mundo. Gravar: o autor, e só as colunas que são dele (a data do
+-- último capítulo, que ordena a Home, e a contagem ficam com o banco). O
+-- upsert da API repete as colunas da chave no update, por isso elas entram.
+revoke all on publications, published_chapters from anon, authenticated;
+grant select on publications, published_chapters to anon, authenticated;
+grant insert (story_id, title, synopsis, genre, cover_color, cover_path, author_name),
+  update (story_id, title, synopsis, genre, cover_color, cover_path, author_name),
+  delete on publications to authenticated;
+grant insert (publication_id, chapter_id, position, title, content, word_count, excerpt, source_updated_at),
+  update (publication_id, chapter_id, position, title, content, word_count, excerpt, source_updated_at),
+  delete on published_chapters to authenticated;
+
+drop policy if exists "todos: ler" on publications;
+drop policy if exists "dono: publicar" on publications;
+drop policy if exists "dono: mudar" on publications;
+drop policy if exists "dono: tirar" on publications;
+create policy "todos: ler" on publications for select to anon, authenticated using (true);
+create policy "dono: publicar" on publications for insert to authenticated with check (user_id = (select auth.uid()));
+create policy "dono: mudar" on publications for update to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+create policy "dono: tirar" on publications for delete to authenticated using (user_id = (select auth.uid()));
+
+drop policy if exists "todos: ler" on published_chapters;
+drop policy if exists "dono: publicar" on published_chapters;
+drop policy if exists "dono: mudar" on published_chapters;
+drop policy if exists "dono: tirar" on published_chapters;
+create policy "todos: ler" on published_chapters for select to anon, authenticated using (true);
+create policy "dono: publicar" on published_chapters for insert to authenticated with check (user_id = (select auth.uid()));
+create policy "dono: mudar" on published_chapters for update to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+create policy "dono: tirar" on published_chapters for delete to authenticated using (user_id = (select auth.uid()));
+
+-- O @ e a capa de quem publicou ficam visíveis para todos; o resto, não.
+grant select on profiles to anon;
+drop policy if exists "autores: ler" on profiles;
+create policy "autores: ler" on profiles for select to anon, authenticated
+  using (exists (select 1 from publications p where p.user_id = profiles.user_id));
+
+drop policy if exists "capas publicadas: ler" on storage.objects;
+create policy "capas publicadas: ler" on storage.objects for select to anon, authenticated
+  using (bucket_id = 'covers' and exists (select 1 from public.publications p where p.cover_path = name));
+
+-- Capítulo novo sobe a história na Home; a contagem acompanha.
+create or replace function private.publication_count() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  pub uuid := coalesce(new.publication_id, old.publication_id);
+begin
+  update public.publications set
+    chapter_count = (select count(*) from public.published_chapters where publication_id = pub),
+    last_chapter_at = case when tg_op = 'INSERT' then now() else last_chapter_at end
+  where id = pub;
+  return null;
+end;
+$$;
+revoke all on function private.publication_count() from public, anon, authenticated;
+
+drop trigger if exists published_chapters_count on published_chapters;
+create trigger published_chapters_count after insert or delete on published_chapters
+  for each row execute function private.publication_count();
+
+create or replace function private.published_chapter_touch() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  new.updated_at := now();
+  new.published_at := old.published_at;
+  return new;
+end;
+$$;
+drop trigger if exists published_chapters_touch on published_chapters;
+create trigger published_chapters_touch before update on published_chapters
+  for each row execute function private.published_chapter_touch();
+
+-- Limites por conta, à parte dos 20 MB da sincronização: 20 histórias
+-- publicadas e 300 capítulos, com 5 MB de texto (uns 150 capítulos de 3 mil
+-- palavras). Quem passa recebe 'lirismo_pub_quota'. Tirar do ar e encolher
+-- passam sempre.
+create or replace function private.publications_quota() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then return null; end if;
+  if (select count(*) from public.publications where user_id = auth.uid()) > 20 then
+    raise exception 'lirismo_pub_quota' using detail = 'histórias';
+  end if;
+  return null;
+end;
+$$;
+revoke all on function private.publications_quota() from public, anon, authenticated;
+
+drop trigger if exists publications_quota on publications;
+create trigger publications_quota after insert on publications
+  for each statement execute function private.publications_quota();
+
+create or replace function private.published_chapters_quota() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  added_rows bigint := 0;
+  added_bytes bigint;
+  total_rows bigint;
+  total_bytes bigint;
+begin
+  if auth.uid() is null then return null; end if;
+  if tg_op = 'INSERT' then
+    select count(*), coalesce(sum(pg_column_size(content)), 0) into added_rows, added_bytes from new_rows;
+  else
+    select coalesce(sum(pg_column_size(content)), 0) into added_bytes from new_rows;
+    added_bytes := added_bytes - (select coalesce(sum(pg_column_size(content)), 0) from old_rows);
+  end if;
+  if added_rows = 0 and added_bytes <= 0 then return null; end if;
+  select count(*), coalesce(sum(pg_column_size(content)), 0) into total_rows, total_bytes
+    from public.published_chapters where user_id = auth.uid();
+  if total_rows > 300 or total_bytes > 5 * 1024 * 1024 then
+    raise exception 'lirismo_pub_quota' using detail = format('%s capítulos, %s bytes', total_rows, total_bytes);
+  end if;
+  return null;
+end;
+$$;
+revoke all on function private.published_chapters_quota() from public, anon, authenticated;
+
+drop trigger if exists published_chapters_quota_insert on published_chapters;
+create trigger published_chapters_quota_insert after insert on published_chapters
+  referencing new table as new_rows
+  for each statement execute function private.published_chapters_quota();
+drop trigger if exists published_chapters_quota_update on published_chapters;
+create trigger published_chapters_quota_update after update on published_chapters
+  referencing old table as old_rows new table as new_rows
+  for each statement execute function private.published_chapters_quota();
+
 -- Faz a API enxergar as tabelas na hora.
 notify pgrst, 'reload schema';

@@ -190,6 +190,7 @@ a.area:hover {
   padding: 0 4px;
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 .sidebar-export > .btn {
   justify-content: flex-start;

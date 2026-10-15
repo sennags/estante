@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { addChapter, db, deleteChapter, getChapters, getScenes, moveChapter, STATUS_LABEL, storyStatus, type Chapter, type Entry, type Scene, type Story, type Thread } from '../db';
@@ -6,6 +6,7 @@ import { Icon, type IconName } from '../components/Icon';
 import { StoryDialog } from '../components/StoryDialog';
 import { ask, tell } from '../components/Ask';
 import { exportPdf } from '../lib/export';
+import { PublishButton } from '../components/PublishDialog';
 import { refreshPageCounts } from '../editor/pageCount';
 import { chapterName } from '../lib/text';
 import './StoryLayout.css';
@@ -53,7 +54,7 @@ export function StoryLayout() {
   }, [chapters, storyId]);
 
   if (story === null || !chapters || !scenes || !threads || !entries) return null;
-  if (!story || story.deletedAt) return <Navigate to="/" replace />;
+  if (!story || story.deletedAt) return <Navigate to="/biblioteca" replace />;
 
   return (
     <Ctx.Provider value={{ story, chapters, scenes, threads, entries, focus, setFocus, openMenu: () => setMenuOpen(true), setBeforeExport }}>
@@ -147,7 +148,7 @@ function Sidebar({ story, chapters, openThreads, open, onClose, onEdit, beforeEx
   return (
     <nav className={`sidebar ${open ? 'is-open' : ''}`} aria-label="Áreas da história">
       <div className="sidebar-top">
-        <Link to="/" className="sidebar-back">
+        <Link to="/biblioteca" className="sidebar-back">
           <Icon name="back" size={16} />
           Biblioteca
         </Link>
@@ -214,7 +215,9 @@ function Sidebar({ story, chapters, openThreads, open, onClose, onEdit, beforeEx
         </button>
       </div>
 
-      <ExportMenu story={story} beforeExport={beforeExport} />
+      <ExportMenu story={story} beforeExport={beforeExport}>
+        <PublishButton story={story} chapters={chapters} beforeSave={beforeExport} />
+      </ExportMenu>
     </nav>
   );
 }
@@ -235,7 +238,7 @@ function Area({ icon, label, to, count, countLabel }: AreaProps) {
   );
 }
 
-function ExportMenu({ story, beforeExport }: { story: Story; beforeExport: () => Promise<void> | undefined }) {
+function ExportMenu({ story, beforeExport, children }: { story: Story; beforeExport: () => Promise<void> | undefined; children?: ReactNode }) {
   const [busy, setBusy] = useState(false);
 
   async function run() {
@@ -257,6 +260,7 @@ function ExportMenu({ story, beforeExport }: { story: Story; beforeExport: () =>
         <Icon name="download" size={16} />
         {busy ? 'Exportando…' : 'Exportar em PDF'}
       </button>
+      {children}
     </div>
   );
 }

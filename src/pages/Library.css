@@ -150,6 +150,14 @@
 .cover-sm .cover-title {
   font-size: 15px;
 }
+/* Too small for words: only the color or the image. */
+.cover-xs {
+  width: 48px;
+  height: 70px;
+}
+.cover-xs > * {
+  display: none;
+}
 .cover-genre {
   font-size: 10px;
   letter-spacing: 0.08em;

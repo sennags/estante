@@ -25,7 +25,7 @@ export function Trash() {
   return (
     <div className="library">
       <header className="library-header">
-        <Link to="/" className="btn btn-ghost" style={{ marginLeft: -12 }}>
+        <Link to="/biblioteca" className="btn btn-ghost" style={{ marginLeft: -12 }}>
           <Icon name="back" size={16} />
           Biblioteca
         </Link>

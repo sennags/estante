@@ -84,43 +84,58 @@ export async function getPublishedChapter(publicationId: string, chapterId: stri
   return data as PublishedChapter | null;
 }
 
-/** A chapter of the feed: what the Home needs to count and place it, no text. */
-export type FeedChapter = { publication_id: string; chapter_id: string; position: number; title: string; word_count: number; published_at: string };
+/**
+ * A story of the Home, already summed up by the server (community_feed in
+ * supabase/schema.sql): how many chapters came out this week, how far this
+ * reader got and the next chapter to read, without the table of contents.
+ */
+export type FeedItem = {
+  id: string;
+  title: string;
+  synopsis: string;
+  genre: string;
+  cover_color: string;
+  cover_path: string | null;
+  author_name: string;
+  chapter_count: number;
+  last_chapter_at: string;
+  created_at: string;
+  handle: string | null;
+  fresh_count: number;
+  latest_position: number | null;
+  read_count: number;
+  next_chapter_id: string | null;
+  next_position: number | null;
+  next_word_count: number | null;
+  next_excerpt: string | null;
+  last_chapter_id: string;
+};
 
-export type FeedItem = Publication & { chapters: FeedChapter[] };
+/** Where the next page starts: right after the last story of this one. */
+export type FeedCursor = { at: string; id: string };
+
+export const FEED_PAGE = 20;
 
 /**
- * The Home: the stories with the newest chapters, each with its table of
- * contents (newest first, without the text; very long stories may come
- * without their oldest chapters).
+ * One page of the Home, newest chapter first. `progress` is how far this
+ * device read each story (lib/reading.ts). `next` is null on the last page.
  */
-export async function listFeed(genre?: string): Promise<FeedItem[]> {
-  let query = supabase!.from('publications').select(PUBLICATION_FIELDS).gt('chapter_count', 0);
-  if (genre) query = query.eq('genre', genre);
-  const { data, error } = await query.order('last_chapter_at', { ascending: false }).limit(30);
+export async function listFeed(
+  genre: string | undefined,
+  progress: Record<string, number>,
+  after?: FeedCursor,
+): Promise<{ items: FeedItem[]; next: FeedCursor | null }> {
+  const { data, error } = await supabase!.rpc('community_feed', {
+    genre_filter: genre ?? null,
+    before_at: after?.at ?? null,
+    before_id: after?.id ?? null,
+    progress,
+    page_size: FEED_PAGE,
+  });
   if (error) throw error;
-  const pubs = data as unknown as Publication[];
-  if (!pubs.length) return [];
-  const chapters = await supabase!
-    .from('published_chapters')
-    .select('publication_id, chapter_id, position, title, word_count, published_at')
-    .in('publication_id', pubs.map((p) => p.id))
-    .order('published_at', { ascending: false })
-    .limit(1000);
-  if (chapters.error) throw chapters.error;
-  const rows = chapters.data as FeedChapter[];
-  return pubs.map((p) => ({ ...p, chapters: rows.filter((c) => c.publication_id === p.id).sort((a, b) => a.position - b.position) }));
-}
-
-/** The first lines of some chapters, by publication and chapter. */
-export async function getExcerpts(pairs: { publicationId: string; chapterId: string }[]): Promise<Map<string, string>> {
-  if (!pairs.length) return new Map();
-  const { data, error } = await supabase!
-    .from('published_chapters')
-    .select('publication_id, chapter_id, excerpt')
-    .in('chapter_id', [...new Set(pairs.map((p) => p.chapterId))]);
-  if (error) throw error;
-  return new Map((data as { publication_id: string; chapter_id: string; excerpt: string }[]).map((r) => [`${r.publication_id}/${r.chapter_id}`, r.excerpt]));
+  const items = data as FeedItem[];
+  const last = items[items.length - 1];
+  return { items, next: items.length === FEED_PAGE ? { at: last.last_chapter_at, id: last.id } : null };
 }
 
 /* ---------- The author's side ---------- */

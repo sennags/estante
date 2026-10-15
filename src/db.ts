@@ -224,11 +224,15 @@ export async function restoreStory(id: string) {
   await db.stories.update(id, { deletedAt: undefined, updatedAt: Date.now() });
 }
 
-/** Deletes for good every story that has been in the trash for a week. */
+/**
+ * Deletes for good every story that has been in the trash for a week, and
+ * versions past the limit (kept from before it went down, or from another device).
+ */
 export async function purgeTrash() {
   const limit = Date.now() - TRASH_DAYS * DAY;
   const expired = (await db.stories.where('deletedAt').below(limit).primaryKeys()) as string[];
   for (const id of expired) await deleteStory(id);
+  await pruneVersions();
 }
 
 /** Permanently removes a story with everything that belongs to it. */
@@ -311,7 +315,7 @@ export async function reorderChapters(ids: string[]) {
 }
 
 const VERSION_INTERVAL = 10 * 60 * 1000;
-const MAX_VERSIONS = 5;
+const MAX_VERSIONS = 2;
 
 export async function saveChapterContent(chapter: Chapter, content: JSONContent, wordCount: number, pageCount: number) {
   const now = Date.now();
@@ -325,10 +329,20 @@ export async function saveChapterContent(chapter: Chapter, content: JSONContent,
 
 export async function snapshotVersion(chapterId: string, content: JSONContent, wordCount: number, label: string) {
   await db.versions.add({ id: uid(), chapterId, content, wordCount, label, createdAt: Date.now() });
-  const all = await db.versions.where('chapterId').equals(chapterId).sortBy('createdAt');
-  if (all.length > MAX_VERSIONS) {
-    await db.versions.bulkDelete(all.slice(0, all.length - MAX_VERSIONS).map((v) => v.id));
+  await pruneVersions(chapterId);
+}
+
+/** Keeps only the newest versions of a chapter (or of every chapter). */
+async function pruneVersions(chapterId?: string) {
+  const all = await (chapterId ? db.versions.where('chapterId').equals(chapterId) : db.versions.toCollection()).sortBy('createdAt');
+  const kept = new Map<string, number>();
+  const old: string[] = [];
+  for (const v of all.reverse()) {
+    const n = (kept.get(v.chapterId) ?? 0) + 1;
+    kept.set(v.chapterId, n);
+    if (n > MAX_VERSIONS) old.push(v.id);
   }
+  if (old.length) await db.versions.bulkDelete(old);
 }
 
 export async function createEntry(storyId: string, kind: EntryKind): Promise<Entry> {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, isInTrash, STATUS_LABEL, type Story, type StoryStatus } from '../db';
+import { db, isInTrash, STATUS_LABEL, storyStatus, type Story, type StoryStatus } from '../db';
 import { Cover } from '../components/Cover';
 import { Icon } from '../components/Icon';
 import { Logo } from '../components/Logo';
@@ -12,7 +12,7 @@ import { chapterName, formatNumber, plural, relativeTime } from '../lib/text';
 import './Library.css';
 import './Trash.css';
 
-const SHELVES: StoryStatus[] = ['planejamento', 'escrita', 'revisao'];
+const SHELVES: StoryStatus[] = ['escrita', 'revisao', 'feito'];
 
 export function Library() {
   const all = useLiveQuery(() => db.stories.orderBy('updatedAt').reverse().toArray(), []);
@@ -109,7 +109,7 @@ export function Library() {
 
         {stories.length > 0 &&
           SHELVES.map((status) => {
-            const books = visible.filter((s) => s.status === status);
+            const books = visible.filter((s) => storyStatus(s) === status);
             if (q && !books.length) return null;
             return (
               <section key={status} className="shelf" aria-label={STATUS_LABEL[status]}>
@@ -127,7 +127,7 @@ export function Library() {
                           <span className="book-title">{s.title}</span>
                           <span className="book-sub">
                             {plural(count, 'capítulo', 'capítulos')} ·{' '}
-                            {status === 'planejamento' && sceneCount ? plural(sceneCount, 'cena', 'cenas') : `${formatNumber(words)} palavras`}
+                            {!words && sceneCount ? plural(sceneCount, 'cena', 'cenas') : `${formatNumber(words)} palavras`}
                           </span>
                         </span>
                       </Link>

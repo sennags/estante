@@ -11,6 +11,7 @@ import { Icon } from '../components/Icon';
 import { ReferencePanel } from '../components/ReferencePanel';
 import { VersionsDialog } from '../components/VersionsDialog';
 import { chapterLabel, countWords, formatNumber } from '../lib/text';
+import { AUTO_SHEET, setSettings, SHEET_LABEL, useSettings } from '../lib/settings';
 import { useStory } from './StoryLayout';
 import './ChapterEditor.css';
 
@@ -202,6 +203,7 @@ function ChapterSheet({ chapter }: { chapter: Chapter }) {
             {saveState === 'saved' && <Icon name="check" size={14} />}
             {saveLabel}
           </span>
+          {!focus && <SheetColorButton />}
           {!focus && (
             <button className="btn btn-ghost top-btn" aria-label="Versões" title="Versões" onClick={() => setVersionsOpen(true)}>
               <Icon name="history" size={16} />
@@ -355,6 +357,22 @@ function ToolButton({ label, active, onClick, children }: { label: string; activ
       onClick={onClick}
     >
       {children}
+    </button>
+  );
+}
+
+const SHEET_CYCLE = ['branca', 'amarelada', 'preta'] as const;
+
+/** Switches the sheet between white, yellowed and black (also in Settings → Aparência). */
+function SheetColorButton() {
+  const { theme, sheet } = useSettings();
+  const current = sheet === 'auto' ? AUTO_SHEET[theme] : sheet;
+  const next = SHEET_CYCLE[(SHEET_CYCLE.indexOf(current) + 1) % SHEET_CYCLE.length];
+  const label = `Folha ${SHEET_LABEL[current].toLowerCase()}. Trocar para ${SHEET_LABEL[next].toLowerCase()}`;
+  return (
+    <button className="btn btn-ghost top-btn" aria-label={label} title={label} onClick={() => setSettings({ sheet: next })}>
+      <span className={`sheet-dot is-${current}`} aria-hidden="true" />
+      <span className="top-label">Folha</span>
     </button>
   );
 }

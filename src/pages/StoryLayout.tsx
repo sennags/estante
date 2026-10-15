@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { addChapter, db, deleteChapter, getChapters, getScenes, moveChapter, STATUS_LABEL, type Chapter, type Entry, type Scene, type Story, type Thread } from '../db';
+import { addChapter, db, deleteChapter, getChapters, getScenes, moveChapter, STATUS_LABEL, storyStatus, type Chapter, type Entry, type Scene, type Story, type Thread } from '../db';
 import { Icon, type IconName } from '../components/Icon';
 import { StoryDialog } from '../components/StoryDialog';
 import { ask, tell } from '../components/Ask';
@@ -151,6 +151,9 @@ function Sidebar({ story, chapters, openThreads, open, onClose, onEdit, beforeEx
           <Icon name="back" size={16} />
           Biblioteca
         </Link>
+        <Link to="/configuracoes/aparencia" className="icon-btn sidebar-settings" aria-label="Configurações" title="Configurações">
+          <Icon name="settings" size={18} />
+        </Link>
         <button className="icon-btn sidebar-close" aria-label="Fechar menu" onClick={onClose}>
           <Icon name="close" />
         </button>
@@ -159,7 +162,7 @@ function Sidebar({ story, chapters, openThreads, open, onClose, onEdit, beforeEx
       <button className="sidebar-story" onClick={onEdit}>
         <span className="sidebar-title">{story.title}</span>
         <span className="sidebar-status">
-          {STATUS_LABEL[story.status]} · <span style={{ textDecoration: 'underline' }}>detalhes</span>
+          {STATUS_LABEL[storyStatus(story)]} · <span style={{ textDecoration: 'underline' }}>detalhes</span>
         </span>
       </button>
 

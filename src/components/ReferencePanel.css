@@ -24,7 +24,7 @@
   display: flex;
   gap: 4px;
   padding: 4px;
-  background: #e6e0d2;
+  background: var(--tab-track);
   border-radius: var(--radius);
 }
 .refs-tab {
@@ -138,7 +138,7 @@
     z-index: 35;
     border-left: 0;
     border-radius: 18px 18px 0 0;
-    box-shadow: 0 -16px 36px -16px rgba(40, 30, 20, 0.45);
+    box-shadow: 0 -16px 36px -16px var(--shadow-tint);
     padding-top: 8px;
   }
   .refs-grip {

@@ -14,7 +14,7 @@
   line-height: 1.15;
 }
 .scene-title::placeholder {
-  color: #b5ad9c;
+  color: var(--placeholder);
 }
 .scene-row {
   display: grid;
@@ -54,13 +54,13 @@
 
 /* Scene status colors, also used on the planning cards. */
 .status-planejada {
-  --status: #8a8374;
+  --status: var(--ink-5);
 }
 .status-escrita {
-  --status: #2f4a3f;
+  --status: var(--accent);
 }
 .status-revisada {
-  --status: #a5793a;
+  --status: var(--brass);
 }
 .status-chip[aria-checked='true'] {
   background: var(--status);

@@ -1,0 +1,248 @@
+/* Settings page: sections on the left, the chosen one on the right. */
+.settings {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px clamp(16px, 5vw, 72px) 96px;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+
+.settings-nav {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settings-nav .eyebrow {
+  padding: 0 12px 8px;
+}
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  color: var(--ink-2);
+  text-decoration: none;
+  font-weight: 500;
+}
+.settings-tab:hover {
+  background: var(--accent-soft);
+}
+.settings-tab.active {
+  background: var(--ink);
+  color: var(--ground);
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.settings-panel h1 {
+  font-size: 32px;
+  margin-bottom: 4px;
+}
+
+.settings-card {
+  margin: 0;
+  padding: 20px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+}
+.field-label {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+fieldset.settings-card > legend {
+  float: left;
+  width: 100%;
+}
+.settings-note {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+.settings-hint {
+  font-size: 13px;
+  color: var(--ink-4);
+}
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.settings-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.settings-saved svg {
+  color: var(--accent);
+}
+
+.settings-photo {
+  flex-direction: row;
+  align-items: center;
+  gap: 20px;
+}
+.settings-photo-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.settings-photo-actions .btn.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.settings-photo-actions .btn:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.settings-link {
+  min-height: 32px;
+  font-size: 14px;
+}
+
+/* Theme and sheet choices: a small picture with the name below. */
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 12px;
+}
+.choice-grid.sheets {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.choice:hover {
+  background: var(--accent-soft);
+}
+.choice:has(input:checked) {
+  border-color: var(--ink);
+}
+.choice:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.choice-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.theme-preview {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 72px;
+  padding: 12px 18px 0;
+  border: 1px solid;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.theme-preview > span {
+  width: 100%;
+  height: 100%;
+  padding: 10px 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+.theme-preview i,
+.sheet-preview-mini i {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+}
+.theme-preview i:first-child {
+  width: 55%;
+  height: 6px;
+}
+
+.sheet-preview-mini {
+  position: relative;
+  width: 56px;
+  height: 80px;
+  padding: 26px 9px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--line), 0 8px 14px -10px var(--shadow-tint);
+}
+.sheet-preview-mini b {
+  position: absolute;
+  top: 7px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Phones: the sections become tabs across the top. */
+@media (max-width: 720px) {
+  .settings {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 16px 16px 64px;
+  }
+  .settings-nav {
+    position: static;
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+  }
+  .settings-nav .eyebrow {
+    display: none;
+  }
+  .settings-tab {
+    flex: none;
+    min-height: 40px;
+    border: 1px solid var(--line-strong);
+    border-radius: 20px;
+  }
+  .settings-tab.active {
+    border-color: var(--ink);
+  }
+  .settings-panel h1 {
+    font-size: 26px;
+  }
+  .settings-card {
+    padding: 16px;
+  }
+  .settings-photo {
+    gap: 16px;
+  }
+}

@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, isInTrash } from '../db';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
+import { useBannerUrl } from '../sync/profile';
 import { SignInDialog, SignOutDialog, useAccount } from './AccountDialogs';
 import { pendingLabel, syncNow, type AccountState } from '../sync/engine';
 import { relativeTime } from '../lib/text';
@@ -113,6 +114,7 @@ const compact = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFra
 /** The account menu: a card with a cover, the author's photo, name, @ and a few numbers. */
 function AccountCard({ onClose, onSignOut }: { onClose: () => void; onSignOut: () => void }) {
   const account = useAccount();
+  const banner = useBannerUrl(account.profile);
   const stats = useLiveQuery(async () => {
     const stories = (await db.stories.toArray()).filter((s) => !isInTrash(s));
     const ids = new Set(stories.map((s) => s.id));
@@ -126,7 +128,7 @@ function AccountCard({ onClose, onSignOut }: { onClose: () => void; onSignOut: (
 
   return (
     <div className="account-pop" role="dialog" aria-label="Conta">
-      <div className="account-cover">
+      <div className="account-cover" style={banner ? { backgroundImage: `url(${banner})` } : undefined}>
         <span className={`account-chip is-${account.status}`} title={statusText(account)}>
           <span aria-hidden="true" />
           {SHORT_STATUS[account.status]}

@@ -77,8 +77,8 @@
 }
 .account-cover {
   position: relative;
-  height: 64px;
-  background: var(--accent);
+  height: 72px;
+  background: var(--accent) center / cover no-repeat;
   background-image: radial-gradient(circle at 85% -20%, rgba(255, 255, 255, 0.16), transparent 55%);
 }
 .account-chip {
@@ -90,8 +90,9 @@
   gap: 6px;
   padding: 3px 10px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.22);
-  color: var(--accent-ink);
+  /* Dark enough to read on any cover image. */
+  background: rgba(20, 18, 15, 0.5);
+  color: #fbf9f4;
   font-size: 12px;
   font-weight: 500;
 }

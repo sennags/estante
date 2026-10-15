@@ -96,23 +96,44 @@ fieldset.settings-card > legend {
   color: var(--accent);
 }
 
-.settings-photo {
-  flex-direction: row;
-  align-items: center;
-  gap: 20px;
+/* Profile: the cover with the photo over its edge, as on the account card. */
+.profile-head {
+  padding: 0 0 18px;
+  overflow: hidden;
+  gap: 0;
 }
-.settings-photo-actions {
+.profile-cover {
+  aspect-ratio: 3 / 1;
+  background: var(--accent) center / cover no-repeat;
+  background-image: radial-gradient(circle at 85% -20%, rgba(255, 255, 255, 0.16), transparent 55%);
+}
+.profile-photo {
+  display: inline-flex;
+  align-self: flex-start;
+  margin: -44px 0 0 20px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--surface);
+}
+.profile-images {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-width: 0;
+  gap: 10px;
+  padding: 14px 20px 0;
 }
-.settings-photo-actions .btn.is-disabled {
+.profile-image-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.profile-image-row .field-label {
+  width: 44px;
+}
+.profile-image-row .btn.is-disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.settings-photo-actions .btn:focus-within {
+.profile-image-row .btn:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -242,9 +263,6 @@ fieldset.settings-card > legend {
   .settings-card {
     padding: 16px;
   }
-  .settings-photo {
-    gap: 16px;
-  }
 }
 
 /* Photo editor: the square with a round window, and the zoom bar. */
@@ -318,4 +336,12 @@ fieldset.settings-card > legend {
 }
 .settings-hint.is-good {
   color: var(--accent);
+}
+/* The cover has no round window: a thin line marks its edges. */
+.crop-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 2px rgba(255, 253, 248, 0.9);
+  pointer-events: none;
 }

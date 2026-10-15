@@ -311,7 +311,7 @@ export async function reorderChapters(ids: string[]) {
 }
 
 const VERSION_INTERVAL = 10 * 60 * 1000;
-const MAX_VERSIONS = 50;
+const MAX_VERSIONS = 5;
 
 export async function saveChapterContent(chapter: Chapter, content: JSONContent, wordCount: number, pageCount: number) {
   const now = Date.now();

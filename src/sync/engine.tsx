@@ -5,7 +5,7 @@ import { ask, tell } from '../components/Ask';
 import { plural } from '../lib/text';
 import { markFromSync, onLocalChanges, SYNCED_TABLES, type ChangeKey, type SyncedTable } from './middleware';
 import { supabase } from './supabase';
-import { forgetPhoto, profileFrom, type Profile } from './profile';
+import { forgetPhoto, loadHandle, profileFrom, type Profile } from './profile';
 
 /*
  * Local-first sync. The browser (Dexie) stays the source of truth; the
@@ -48,6 +48,8 @@ export type AccountState = {
   email: string | null;
   /** Name and photo, while signed in. */
   profile?: Profile;
+  /** The account's @: undefined while loading (or on failure), null when it has none yet. */
+  handle?: string | null;
   /** This browser's stories are tied to an account (even if the session expired). */
   linked: boolean;
   status: SyncStatus;
@@ -358,11 +360,30 @@ async function unlink() {
 }
 
 let handledUser: string | null | undefined;
+let handleOwner: string | null | undefined;
+
+async function fetchHandle(userId: string | null) {
+  handleOwner = userId;
+  setState({ handle: undefined });
+  if (!userId) return;
+  try {
+    const handle = await loadHandle(userId);
+    if (handleOwner === userId) setState({ handle });
+  } catch (err) {
+    // Offline or the table is not there yet: the @ stays hidden.
+    console.warn('Carregar o @ falhou', err);
+    if (handleOwner === userId) handleOwner = undefined;
+  }
+}
+
+/** After the author saved a new @. */
+export const setHandle = (handle: string) => setState({ handle });
 
 async function handleSession(next: Session | null) {
   session = next;
   const userId = next?.user.id ?? null;
   setState({ email: next?.user.email ?? null, profile: next ? profileFrom(next.user) : undefined });
+  if (userId !== handleOwner) fetchHandle(userId);
   if (userId === handledUser) return;
   handledUser = userId;
   if (!userId) return setState({ status: 'idle' });

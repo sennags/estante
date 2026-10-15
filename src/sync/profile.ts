@@ -20,6 +20,9 @@ export type Profile = {
   googlePhoto?: string;
 };
 
+/** The square the author chose in the photo, in the image's own pixels. */
+export type Crop = { x: number; y: number; size: number };
+
 export const NAME_MAX = 60;
 const PHOTO_SIZE = 256;
 const CACHE_KEY = 'lirismo:foto';
@@ -36,21 +39,22 @@ export function profileFrom(user: User): Profile {
   };
 }
 
-/** Up to two letters for when there is no photo. */
+/** One letter, or two for a name with more than one word, for when there is no photo. */
 export function initials(name: string, email: string) {
   const words = (name || email.split('@')[0]).split(/[\s._-]+/).filter(Boolean);
-  const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : (words[0] ?? '?').slice(0, 2);
+  const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : (words[0] ?? '?')[0];
   return letters.toUpperCase();
 }
 
-/** A square JPEG of the middle of the image. */
-async function squarePhoto(file: Blob): Promise<Blob> {
+/** A square JPEG of the chosen part of the image (the middle, without a crop). */
+async function squarePhoto(file: Blob, crop?: Crop): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const side = Math.min(bitmap.width, bitmap.height);
+  const c = crop ?? { x: (bitmap.width - side) / 2, y: (bitmap.height - side) / 2, size: side };
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = PHOTO_SIZE;
   const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, PHOTO_SIZE, PHOTO_SIZE);
+  ctx.drawImage(bitmap, c.x, c.y, c.size, c.size, 0, 0, PHOTO_SIZE, PHOTO_SIZE);
   bitmap.close();
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
   if (!blob) throw new Error('canvas');
@@ -92,9 +96,9 @@ export function forgetPhoto() {
   }
 }
 
-/** Saves a new photo; the image is cut to a 256 px square first. */
-export async function savePhoto(userId: string, file: Blob) {
-  const blob = await squarePhoto(file);
+/** Saves a new photo: the chosen square, at 256 px. */
+export async function savePhoto(userId: string, file: Blob, crop?: Crop) {
+  const blob = await squarePhoto(file, crop);
   const path = `${userId}/perfil`;
   const { error } = await supabase!.storage.from('covers').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
   if (error) throw error;
@@ -157,4 +161,42 @@ export function usePhotoUrl(profile: Profile | undefined): string | null {
 
   if (!profile || profile.photo === false) return null;
   return own ? url : profile.googlePhoto ?? null;
+}
+
+/*
+ * The @: unique per account, in the `profiles` table (supabase/schema.sql),
+ * with the rules of X's usernames: 4 to 15 letters without accents, numbers
+ * or "_", never "lirismo" or "admin". Case does not make it another @.
+ */
+
+export const HANDLE_MAX = 15;
+
+/** What is wrong with a @ the author typed, or null when it is fine to ask the server. */
+export function handleProblem(handle: string): string | null {
+  if (handle.length < 4) return 'O @ precisa de pelo menos 4 caracteres.';
+  if (handle.length > HANDLE_MAX) return `O @ pode ter até ${HANDLE_MAX} caracteres.`;
+  if (!/^[A-Za-z0-9_]+$/.test(handle)) return 'Use só letras sem acento, números e “_”.';
+  if (/lirismo|admin/i.test(handle)) return 'O @ não pode ter “Lirismo” nem “Admin”.';
+  return null;
+}
+
+/** The account's @, or null when it has none yet. */
+export async function loadHandle(userId: string): Promise<string | null> {
+  const { data, error } = await supabase!.from('profiles').select('handle').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  return (data?.handle as string | undefined) ?? null;
+}
+
+export async function handleAvailable(handle: string): Promise<boolean> {
+  const { data, error } = await supabase!.rpc('handle_available', { candidate: handle });
+  if (error) throw error;
+  return data === true;
+}
+
+export class HandleTaken extends Error {}
+
+export async function saveHandle(userId: string, handle: string) {
+  const { error } = await supabase!.from('profiles').upsert({ user_id: userId, handle }, { onConflict: 'user_id' });
+  if (error?.code === '23505') throw new HandleTaken();
+  if (error) throw error;
 }

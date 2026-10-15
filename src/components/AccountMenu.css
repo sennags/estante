@@ -8,7 +8,7 @@
   border-radius: 50%;
 }
 
-/* The author's photo, or initials on the accent color. */
+/* The author's photo, or their initials on brass (it stands out on the green cover). */
 .avatar {
   display: inline-flex;
   align-items: center;
@@ -16,10 +16,10 @@
   flex: none;
   overflow: hidden;
   border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-family: var(--sans);
-  font-weight: 600;
+  background: var(--brass-soft);
+  color: var(--brass-ink);
+  font-family: var(--serif-display);
+  font-weight: 500;
   letter-spacing: 0.02em;
   user-select: none;
 }
@@ -27,21 +27,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-.account-who {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.account-who > div {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.account-name {
-  font-weight: 600;
-  overflow-wrap: anywhere;
 }
 .account-dot {
   position: absolute;
@@ -71,38 +56,106 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .account-btn .account-dot {
+  .account-btn .account-dot,
+  .account-chip > span {
     animation: none !important;
   }
 }
 
+/* The account menu: a card with a cover, the photo over its edge, and a list. */
 .account-pop {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   z-index: 20;
   width: min(320px, calc(100vw - 32px));
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  overflow: hidden;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: var(--shadow-pop);
 }
-.account-email {
-  font-size: 14px;
-  color: var(--ink-3);
+.account-cover {
+  position: relative;
+  height: 64px;
+  background: var(--accent);
+  background-image: radial-gradient(circle at 85% -20%, rgba(255, 255, 255, 0.16), transparent 55%);
+}
+.account-chip {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+.account-chip > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.account-chip.is-syncing > span,
+.account-chip.is-idle > span {
+  animation: account-pulse 1.2s ease-in-out infinite;
+}
+.account-chip.is-error,
+.account-chip.is-full {
+  background: var(--danger);
+}
+.account-card-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0 18px 14px;
+}
+.account-photo {
+  display: inline-flex;
+  align-self: flex-start;
+  margin: -32px 0 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--paper);
+}
+.account-name {
+  font-family: var(--serif-display);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
-.account-who > div > .account-email:only-child {
+.account-email {
+  font-size: 13px;
+  color: var(--ink-4);
+  overflow-wrap: anywhere;
+}
+.account-stats {
+  display: flex;
+  gap: 22px;
+  margin: 14px 0 0;
+}
+.account-stats > div {
+  display: flex;
+  flex-direction: column-reverse;
+}
+.account-stats dd {
+  margin: 0;
+  font-size: 17px;
   font-weight: 600;
-  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.account-stats dt {
+  font-size: 12px;
+  color: var(--ink-4);
 }
 .account-status {
-  margin: 12px 0 10px;
-  font-size: 14px;
+  margin: 12px 0 0;
+  font-size: 13px;
   line-height: 1.45;
   color: var(--ink-3);
 }
@@ -110,22 +163,76 @@
 .account-status.is-full {
   color: var(--danger);
 }
-.account-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.account-nudge {
+  align-self: flex-start;
+  margin-top: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--brass-soft);
+  color: var(--brass-ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
 }
-/* Out of the way: below the everyday buttons, small and quiet. */
+.account-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-top: 1px solid var(--line-soft);
+}
+.account-menu a,
+.account-menu button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink);
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.account-menu svg {
+  color: var(--ink-3);
+}
+.account-menu a:hover,
+.account-menu button:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+.account-menu button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.account-menu small {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ink-4);
+}
+.account-menu hr {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Out of the way: below the everyday buttons, small, in red. */
 .account-delete {
   align-self: flex-start;
   min-height: 32px;
   margin-top: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--ink-4);
+}
+/* Beats .link-btn, which comes later. */
+.link-btn.account-delete {
+  color: var(--danger);
 }
 .account-delete:hover {
-  color: var(--danger);
+  text-decoration-thickness: 2px;
 }
 
 /* Sign-in and password dialogs */

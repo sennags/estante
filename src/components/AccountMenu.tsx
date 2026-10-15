@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db, isInTrash } from '../db';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 import { SignInDialog, SignOutDialog, useAccount } from './AccountDialogs';
@@ -83,38 +85,109 @@ export function AccountMenu() {
         <span className="account-dot" aria-hidden="true" />
       </button>
       {open && (
-        <div className="account-pop" role="dialog" aria-label="Conta">
-          <div className="account-who">
-            <Avatar profile={account.profile} email={account.email} size={48} />
-            <div>
-              {account.profile?.name && <strong className="account-name">{account.profile.name}</strong>}
-              <span className="account-email">{account.email}</span>
-            </div>
-          </div>
-          <p className={`account-status is-${account.status}`} aria-live="polite">{statusText(account)}</p>
-          <div className="account-actions">
-            <Link className="btn btn-sm btn-outline" to="/configuracoes/perfil">
-              <Icon name="settings" size={15} />
-              Perfil e configurações
-            </Link>
-            <button className="btn btn-sm btn-outline" disabled={account.status === 'syncing'} onClick={() => syncNow()}>
-              <Icon name="refresh" size={15} />
-              Sincronizar agora
-            </button>
-            <button
-              className="btn btn-sm btn-ghost"
-              onClick={() => {
-                setOpen(false);
-                setSigningOut(true);
-              }}
-            >
-              <Icon name="logout" size={15} />
-              Sair
-            </button>
-          </div>
-        </div>
+        <AccountCard
+          onClose={() => setOpen(false)}
+          onSignOut={() => {
+            setOpen(false);
+            setSigningOut(true);
+          }}
+        />
       )}
       {signingOut && <SignOutDialog onClose={() => setSigningOut(false)} />}
+    </div>
+  );
+}
+
+/** A word or two for the chip on the card's cover. */
+const SHORT_STATUS: Record<AccountState['status'], string> = {
+  idle: 'Preparando',
+  syncing: 'Sincronizando',
+  synced: 'Salvo',
+  offline: 'Sem internet',
+  error: 'Não sincronizou',
+  full: 'Nuvem cheia',
+};
+
+const compact = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 });
+
+/** The account menu: a card with a cover, the author's photo, name, @ and a few numbers. */
+function AccountCard({ onClose, onSignOut }: { onClose: () => void; onSignOut: () => void }) {
+  const account = useAccount();
+  const stats = useLiveQuery(async () => {
+    const stories = (await db.stories.toArray()).filter((s) => !isInTrash(s));
+    const ids = new Set(stories.map((s) => s.id));
+    const words = (await db.chapters.toArray()).reduce((n, c) => (ids.has(c.storyId) ? n + c.wordCount : n), 0);
+    const open = (await db.threads.where('status').equals('aberto').toArray()).filter((t) => ids.has(t.storyId)).length;
+    return { stories: stories.length, words, open };
+  }, []);
+  if (!account.email) return null;
+  const name = account.profile?.name;
+  const trouble = account.pending > 0 || account.status === 'offline' || account.status === 'error' || account.status === 'full';
+
+  return (
+    <div className="account-pop" role="dialog" aria-label="Conta">
+      <div className="account-cover">
+        <span className={`account-chip is-${account.status}`} title={statusText(account)}>
+          <span aria-hidden="true" />
+          {SHORT_STATUS[account.status]}
+        </span>
+      </div>
+      <div className="account-card-body">
+        <span className="account-photo">
+          <Avatar profile={account.profile} email={account.email} size={64} />
+        </span>
+        <strong className="account-name">{name || account.email.split('@')[0]}</strong>
+        <span className="account-email">
+          {account.handle ? <>@{account.handle} · </> : null}
+          {account.email}
+        </span>
+        {stats && (
+          <dl className="account-stats">
+            <div>
+              <dt>{stats.stories === 1 ? 'história' : 'histórias'}</dt>
+              <dd>{stats.stories}</dd>
+            </div>
+            <div>
+              <dt>palavras</dt>
+              <dd>{compact.format(stats.words)}</dd>
+            </div>
+            <div>
+              <dt>{stats.open === 1 ? 'fio aberto' : 'fios abertos'}</dt>
+              <dd>{stats.open}</dd>
+            </div>
+          </dl>
+        )}
+        {trouble && (
+          <p className={`account-status is-${account.status}`} aria-live="polite">
+            {statusText(account)}
+          </p>
+        )}
+        {!account.handle && account.handle !== undefined && (
+          <Link className="account-nudge" to="/configuracoes/perfil" onClick={onClose}>
+            Escolha o seu @
+          </Link>
+        )}
+      </div>
+      <nav className="account-menu" aria-label="Menu da conta">
+        <Link to="/configuracoes/perfil" onClick={onClose}>
+          <Icon name="user" size={18} />
+          Editar perfil
+        </Link>
+        <Link to="/configuracoes/aparencia" onClick={onClose}>
+          <Icon name="palette" size={18} />
+          Aparência
+        </Link>
+        <button disabled={account.status === 'syncing'} onClick={() => syncNow()} title={statusText(account)}>
+          <Icon name="refresh" size={18} />
+          {account.status === 'syncing' ? 'Sincronizando…' : 'Sincronizar agora'}
+          {account.status === 'synced' && account.lastSync && !account.pending && <small>{relativeTime(account.lastSync)}</small>}
+        </button>
+        <hr />
+        <button onClick={onSignOut}>
+          <Icon name="logout" size={18} />
+          Sair
+        </button>
+      </nav>
     </div>
   );
 }

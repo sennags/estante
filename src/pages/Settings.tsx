@@ -314,7 +314,6 @@ function AccountSection() {
   );
 }
 
-type HandleCheck = { handle: string; state: 'checking' | 'free' | 'taken' | 'error' };
 
 /** A saved image (a data URL) as a file, to adjust it again in the editor. */
 function fileFrom(dataUrl: string): File {

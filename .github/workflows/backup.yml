@@ -24,10 +24,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+      RAW_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      RAW_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+      RAW_AWS_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+      RAW_AWS_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: sa-east-1
       S3_ENDPOINT: https://sakdxsicqebkvbcysqgp.supabase.co/storage/v1/s3
     steps:
@@ -35,7 +35,12 @@ jobs:
         run: |
           missing=0
           for name in DB_URL AGE_RECIPIENT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
-            if [ -z "${!name}" ]; then echo "::error::Falta configurar $name"; missing=1; fi
+            # Tira espaços e quebras de linha que vêm junto ao colar o valor.
+            raw="RAW_$name"
+            value=$(printf '%s' "${!raw}" | tr -d '[:space:]')
+            if [ -z "$value" ]; then echo "::error::Falta configurar $name"; missing=1; continue; fi
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
           done
           exit $missing
 

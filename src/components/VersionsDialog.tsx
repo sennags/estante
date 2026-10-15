@@ -60,7 +60,7 @@ export function VersionsDialog({ chapterId, editor, onClose }: Props) {
   return (
     <Modal title="Versões do capítulo" onClose={onClose} wide>
       <p style={{ margin: 0, color: 'var(--ink-3)' }}>
-        Uma versão é guardada sozinha a cada 10 minutos de escrita. As 50 mais recentes ficam disponíveis.
+        Uma versão é guardada sozinha a cada 10 minutos de escrita. As 5 mais recentes ficam disponíveis.
       </p>
       <div style={{ display: 'flex', gap: 10 }}>
         <button className="btn btn-outline" onClick={saveNow}>Guardar versão agora</button>

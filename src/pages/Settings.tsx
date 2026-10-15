@@ -292,6 +292,11 @@ function AccountSection() {
   return (
     <>
       <div className="settings-card">
+        <span className="field-label">E-mail da conta</span>
+        <p style={{ margin: 0 }}>{account.email}</p>
+        <p className="settings-hint" style={{ margin: 0 }}>Só você vê. No cartão da conta aparecem o nome e o @.</p>
+      </div>
+      <div className="settings-card">
         <span className="field-label">Sincronização</span>
         <p className={`account-status is-${account.status}`} style={{ margin: 0 }} aria-live="polite">{statusText(account)}</p>
         <div className="settings-row">

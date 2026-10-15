@@ -140,11 +140,9 @@ function AccountCard({ onClose, onSignOut }: { onClose: () => void; onSignOut: (
         <span className="account-photo">
           <Avatar profile={account.profile} email={account.email} size={64} />
         </span>
-        <strong className="account-name">{name || account.email.split('@')[0]}</strong>
-        <span className="account-email">
-          {account.handle ? <>@{account.handle} · </> : null}
-          {account.email}
-        </span>
+        {/* Only the name and the @: the e-mail shows in Configurações → Conta. */}
+        {name && <strong className="account-name">{name}</strong>}
+        {account.handle && (name ? <span className="account-handle">@{account.handle}</span> : <strong className="account-name">@{account.handle}</strong>)}
         {stats && (
           <dl className="account-stats">
             <div>

@@ -125,5 +125,43 @@ create policy "capas do dono: trocar" on storage.objects for update to authentic
 create policy "capas do dono: apagar" on storage.objects for delete to authenticated
   using (bucket_id = 'covers' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
--- Faz a API enxergar a tabela na hora.
+-- Perfil: o @ de cada pessoa, único sem diferenciar maiúsculas de minúsculas.
+-- Mesmas regras do @ do X (Twitter): de 4 a 15 caracteres, só letras sem
+-- acento, números e "_", e sem as palavras "lirismo" e "admin". O nome e a
+-- foto ficam nos metadados da conta (src/sync/profile.ts).
+create table if not exists profiles (
+  user_id uuid primary key default auth.uid() references auth.users on delete cascade,
+  handle text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table profiles drop constraint if exists profiles_handle_format;
+alter table profiles add constraint profiles_handle_format
+  check (handle ~ '^[A-Za-z0-9_]{4,15}$' and lower(handle) !~ '(lirismo|admin)');
+create unique index if not exists profiles_handle_unique on profiles (lower(handle));
+
+alter table profiles enable row level security;
+revoke all on profiles from anon;
+grant select, insert, update, delete on profiles to authenticated;
+
+-- Cada um lê e muda só o próprio @.
+drop policy if exists "dono" on profiles;
+create policy "dono" on profiles for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+-- "Este @ está livre?", sem deixar ninguém ler a tabela inteira.
+create or replace function public.handle_available(candidate text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select candidate ~ '^[A-Za-z0-9_]{4,15}$'
+     and lower(candidate) !~ '(lirismo|admin)'
+     and not exists (
+       select 1 from public.profiles
+       where lower(handle) = lower(candidate) and user_id is distinct from (select auth.uid())
+     );
+$$;
+revoke all on function public.handle_available(text) from public, anon;
+grant execute on function public.handle_available(text) to authenticated;
+
+-- Faz a API enxergar as tabelas na hora.
 notify pgrst, 'reload schema';

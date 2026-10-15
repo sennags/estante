@@ -246,3 +246,76 @@ fieldset.settings-card > legend {
     gap: 16px;
   }
 }
+
+/* Photo editor: the square with a round window, and the zoom bar. */
+.crop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.crop-view {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--desk);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.crop-view:active {
+  cursor: grabbing;
+}
+.crop-view img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.crop-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 253, 248, 0.9), 0 0 0 999px rgba(20, 18, 15, 0.55);
+  pointer-events: none;
+}
+.crop-zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(280px, 100%);
+  color: var(--ink-3);
+}
+.crop-zoom input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+/* The @ field: the sign sits inside the box. */
+.handle-input {
+  position: relative;
+  display: flex;
+}
+.handle-input > span {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-4);
+  pointer-events: none;
+}
+.handle-input .input {
+  padding-left: 28px;
+}
+.handle-input.is-bad .input {
+  border-color: var(--danger);
+}
+.settings-hint.is-bad {
+  color: var(--danger);
+}
+.settings-hint.is-good {
+  color: var(--accent);
+}

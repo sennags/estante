@@ -306,6 +306,8 @@ export function NewPasswordDialog() {
 export function SignOutDialog({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<'checking' | 'unsent' | 'choose' | 'leaving'>('checking');
   const [unsent, setUnsent] = useState(0);
+  const account = useAccount();
+  const reason = account.status === 'full' ? 'full' : account.held > 0 ? 'held' : 'offline';
 
   useEffect(() => {
     let alive = true;
@@ -337,8 +339,17 @@ export function SignOutDialog({ onClose }: { onClose: () => void }) {
     return (
       <Modal title="Ainda há mudanças só aqui" onClose={onClose}>
         <div className="ask-message">
-          <p>Há {pendingLabel(unsent)} para a nuvem, provavelmente por falta de internet.</p>
-          <p>Se sair agora, elas não chegam aos outros aparelhos. Que tal esperar a conexão voltar?</p>
+          {reason === 'offline' ? (
+            <>
+              <p>Há {pendingLabel(unsent)} para a nuvem, provavelmente por falta de internet.</p>
+              <p>Se sair agora, elas não chegam aos outros aparelhos. Que tal esperar a conexão voltar?</p>
+            </>
+          ) : (
+            <>
+              <p>Há {pendingLabel(unsent)} para a nuvem: {reason === 'full' ? 'a nuvem da sua conta está cheia' : 'algo passou do tamanho máximo de 5 MB'}.</p>
+              <p>Se sair, mantenha uma cópia neste aparelho: apagando, essas mudanças se perdem.</p>
+            </>
+          )}
         </div>
         <div className="dialog-actions">
           <button className="btn btn-ghost" onClick={() => setStep('choose')}>Sair mesmo assim</button>

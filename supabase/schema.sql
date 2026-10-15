@@ -48,9 +48,9 @@ create trigger records_rev before insert or update on records
 -- tem 500 MB). Quem passa do limite recebe o erro 'lirismo_quota', e o app
 -- avisa que a nuvem da conta está cheia. Apagar e encolher passam sempre, para
 -- quem está cheio conseguir liberar espaço. A maior parte do espaço é das
--- versões dos capítulos (até 50 por capítulo); um romance de 25 capítulos com
--- todas as versões ocupa de 10 a 20 MB. Para mudar os limites, troque os
--- números e rode de novo.
+-- versões dos capítulos (até 5 por capítulo). O app separa o registro que
+-- passa de 5 MB e segue enviando o resto (src/sync/engine.tsx). Para mudar
+-- os limites, troque os números e rode de novo.
 alter table records drop constraint if exists records_id_len;
 alter table records add constraint records_id_len check (length(id) <= 64);
 alter table records drop constraint if exists records_data_size;

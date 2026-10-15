@@ -21,9 +21,11 @@ export function statusText(a: AccountState): string {
     case 'error':
       return 'Não foi possível sincronizar agora. Tentamos de novo em um minuto.';
     case 'full':
-      return 'A nuvem da sua conta está cheia: as mudanças novas ficam só neste aparelho. Apagar versões antigas libera espaço.';
+      return 'A nuvem da sua conta está cheia: as mudanças novas ficam só neste aparelho. Apagar o que você não usa mais libera espaço.';
     case 'synced':
-      return a.pending ? `${pendingLabel(a.pending)}.` : `Tudo salvo na nuvem${a.lastSync ? `, ${relativeTime(a.lastSync)}` : ''}.`;
+      if (a.pending) return `${pendingLabel(a.pending)}.`;
+      if (a.held) return a.held === 1 ? 'Um item passou de 5 MB e fica só neste aparelho.' : `${a.held} itens passaram de 5 MB e ficam só neste aparelho.`;
+      return `Tudo salvo na nuvem${a.lastSync ? `, ${relativeTime(a.lastSync)}` : ''}.`;
     default:
       return 'Preparando a sincronização…';
   }
@@ -124,7 +126,7 @@ function AccountCard({ onClose, onSignOut }: { onClose: () => void; onSignOut: (
   }, []);
   if (!account.email) return null;
   const name = account.profile?.name;
-  const trouble = account.pending > 0 || account.status === 'offline' || account.status === 'error' || account.status === 'full';
+  const trouble = account.pending > 0 || account.held > 0 || account.status === 'offline' || account.status === 'error' || account.status === 'full';
 
   return (
     <div className="account-pop" role="dialog" aria-label="Conta">
@@ -179,7 +181,7 @@ function AccountCard({ onClose, onSignOut }: { onClose: () => void; onSignOut: (
           <Icon name="palette" size={18} />
           Aparência
         </Link>
-        <button disabled={account.status === 'syncing'} onClick={() => syncNow()} title={statusText(account)}>
+        <button disabled={account.status === 'syncing'} onClick={() => syncNow(true)} title={statusText(account)}>
           <Icon name="refresh" size={18} />
           {account.status === 'syncing' ? 'Sincronizando…' : 'Sincronizar agora'}
           {account.status === 'synced' && account.lastSync && !account.pending && <small>{relativeTime(account.lastSync)}</small>}

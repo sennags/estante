@@ -295,7 +295,7 @@ function AccountSection() {
         <span className="field-label">Sincronização</span>
         <p className={`account-status is-${account.status}`} style={{ margin: 0 }} aria-live="polite">{statusText(account)}</p>
         <div className="settings-row">
-          <button className="btn btn-outline" disabled={account.status === 'syncing'} onClick={() => syncNow()}>
+          <button className="btn btn-outline" disabled={account.status === 'syncing'} onClick={() => syncNow(true)}>
             <Icon name="refresh" size={16} />
             Sincronizar agora
           </button>

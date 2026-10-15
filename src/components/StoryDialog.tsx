@@ -6,6 +6,8 @@ import { GENRES, toGenre } from '../lib/genres';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
+import { useAccount } from './AccountDialogs';
+import { unpublishTrashed } from '../sync/community';
 
 type Props = {
   story?: Story;
@@ -77,6 +79,7 @@ function differs(a: Draft, b: Draft) {
 /** Creates a new story, or edits one when `story` is given. */
 export function StoryDialog({ story, onClose }: Props) {
   const navigate = useNavigate();
+  const userId = useAccount().profile?.userId;
   const [saved] = useState(() => savedFields(story));
   const [restored] = useState(() => loadDraft(story));
   const [form, setForm] = useState<Draft>(() => restored ?? saved);
@@ -126,6 +129,7 @@ export function StoryDialog({ story, onClose }: Props) {
     if (!story) return;
     clearDraft(story);
     await trashStory(story.id);
+    if (userId) unpublishTrashed(userId, story.id).catch((err) => console.warn('Tirar do ar', err));
     navigate('/biblioteca');
   }
 
@@ -148,6 +152,11 @@ export function StoryDialog({ story, onClose }: Props) {
           Talvez você e <strong style={{ fontWeight: 600 }}>{story.title}</strong> só precisem de um tempo… Ela vai esperar na
           lixeira por {TRASH_DAYS} dias, e depois disso some de vez.
         </p>
+        {userId && (
+          <p style={{ margin: '10px 0 0', fontSize: 15, lineHeight: 1.5, color: 'var(--ink-3)' }}>
+            Se ela estiver publicada na comunidade, sai do ar agora. Devolver da lixeira não publica de novo.
+          </p>
+        )}
         <div className="dialog-actions">
           <button type="button" className="btn btn-ghost" onClick={() => setConfirmTrash(false)}>Cancelar</button>
           <button type="button" className="btn btn-dark" onClick={moveToTrash}>

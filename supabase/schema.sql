@@ -323,6 +323,8 @@ begin
     chapter_count = (select count(*) from public.published_chapters where publication_id = pub),
     last_chapter_at = case when tg_op = 'INSERT' then now() else last_chapter_at end
   where id = pub;
+  -- Sem capítulo nenhum, a história sai do ar.
+  delete from public.publications where id = pub and chapter_count = 0 and tg_op = 'DELETE';
   return null;
 end;
 $$;
@@ -343,6 +345,36 @@ $$;
 drop trigger if exists published_chapters_touch on published_chapters;
 create trigger published_chapters_touch before update on published_chapters
   for each row execute function private.published_chapter_touch();
+
+-- História na lixeira ou apagada, e capítulo apagado, saem do ar. Fica no
+-- banco, e não só no app, para valer quando o autor apaga em outro aparelho
+-- ou sem internet: chega aqui pela sincronização. Devolver da lixeira não
+-- publica de novo.
+create or replace function private.unpublish_removed() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.kind = 'stories' and (new.deleted or new.data->>'deletedAt' is not null) then
+    delete from public.publications where user_id = new.user_id and story_id = new.id;
+  elsif new.kind = 'chapters' and new.deleted then
+    delete from public.published_chapters where user_id = new.user_id and chapter_id = new.id;
+  end if;
+  return null;
+end;
+$$;
+revoke all on function private.unpublish_removed() from public, anon, authenticated;
+
+drop trigger if exists records_unpublish on records;
+create trigger records_unpublish after insert or update on records
+  for each row when (new.kind in ('stories', 'chapters'))
+  execute function private.unpublish_removed();
+
+-- O que já tinha sido apagado antes deste trigger existir também sai do ar.
+-- Rodar de novo não muda nada.
+delete from publications p using records r
+  where r.user_id = p.user_id and r.kind = 'stories' and r.id = p.story_id
+    and (r.deleted or r.data->>'deletedAt' is not null);
+delete from published_chapters c using records r
+  where r.user_id = c.user_id and r.kind = 'chapters' and r.id = c.chapter_id and r.deleted;
 
 -- Limites por conta, à parte dos 20 MB da sincronização: 20 histórias
 -- publicadas e 300 capítulos, com 5 MB de texto (uns 150 capítulos de 3 mil

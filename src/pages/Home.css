@@ -73,34 +73,6 @@
   color: var(--ink-4);
 }
 
-/* Genres */
-.home-genres {
-  display: flex;
-  gap: 8px;
-  margin: 28px 0 8px;
-  padding-bottom: 6px;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-.home-chip {
-  flex: none;
-  padding: 5px 13px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink-2);
-  font-size: 14px;
-  cursor: pointer;
-}
-.home-chip:hover {
-  border-color: var(--ink-4);
-}
-.home-chip.is-on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--ground);
-}
-
 .home-quiet {
   color: var(--ink-4);
   padding: 24px 0;

@@ -382,21 +382,29 @@ delete from published_chapters c using records r
 -- de capítulos. `progress` é o que o leitor leu ({ "<id da publicação>":
 -- posição do último capítulo aberto }, guardado só no aparelho dele). A
 -- página seguinte começa depois de (before_at, before_id), a última linha da
--- anterior. Roda com as regras de quem chama: lê só o que já é público.
+-- anterior. `collection` é uma das coleções automáticas: 'curtas' (até 4600
+-- palavras, 20 minutos a 230 por minuto) ou 'novas' (publicadas nos últimos 7
+-- dias). `only_id` devolve só aquela história (o destaque do dia). Roda com as
+-- regras de quem chama: lê só o que já é público.
 create index if not exists published_chapters_position on published_chapters (publication_id, position);
 
+drop function if exists public.community_featured(jsonb);
 drop function if exists public.community_feed(text, timestamptz, uuid, jsonb, int);
+drop function if exists public.community_feed(text, timestamptz, uuid, jsonb, int, text, uuid);
 create function public.community_feed(
   genre_filter text default null,
   before_at timestamptz default null,
   before_id uuid default null,
   progress jsonb default '{}'::jsonb,
-  page_size int default 20
+  page_size int default 20,
+  collection text default null,
+  only_id uuid default null
 ) returns table (
   id uuid, title text, synopsis text, genre text, cover_color text, cover_path text, author_name text,
   chapter_count int, last_chapter_at timestamptz, created_at timestamptz, handle text,
   fresh_count int,          -- capítulos publicados nos últimos 7 dias
   latest_position int,      -- o mais novo deles
+  total_words int,          -- de todos os capítulos, para o tempo de leitura
   read_count int,           -- capítulos até a posição lida
   next_chapter_id text, next_position int, next_word_count int, next_excerpt text,  -- o próximo a ler
   last_chapter_id text      -- para "Reler o último"
@@ -404,7 +412,7 @@ create function public.community_feed(
 language sql stable set search_path = '' as $$
   select p.id, p.title, p.synopsis, p.genre, p.cover_color, p.cover_path, p.author_name,
     p.chapter_count, p.last_chapter_at, p.created_at, pr.handle,
-    f.fresh_count, f.latest_position, r.read_count,
+    f.fresh_count, f.latest_position, f.total_words, r.read_count,
     n.chapter_id, n.position, n.word_count, n.excerpt,
     l.chapter_id
   from public.publications p
@@ -413,9 +421,11 @@ language sql stable set search_path = '' as $$
     select case when progress ->> p.id::text ~ '^[0-9]{1,5}$' then (progress ->> p.id::text)::int else 0 end as pos
   ) rp
   cross join lateral (
-    select count(*)::int as fresh_count, max(c.position) as latest_position
+    select count(*) filter (where c.published_at > now() - interval '7 days')::int as fresh_count,
+      max(c.position) filter (where c.published_at > now() - interval '7 days') as latest_position,
+      coalesce(sum(c.word_count), 0)::int as total_words
     from public.published_chapters c
-    where c.publication_id = p.id and c.published_at > now() - interval '7 days'
+    where c.publication_id = p.id
   ) f
   cross join lateral (
     select count(*)::int as read_count from public.published_chapters c
@@ -431,13 +441,60 @@ language sql stable set search_path = '' as $$
     where c.publication_id = p.id order by c.position desc limit 1
   ) l on true
   where p.chapter_count > 0
+    and (only_id is null or p.id = only_id)
     and (genre_filter is null or p.genre = genre_filter)
+    and (collection is null
+      or (collection = 'curtas' and f.total_words <= 4600)
+      or (collection = 'novas' and p.created_at > now() - interval '7 days'))
     and (before_at is null or (p.last_chapter_at, p.id) < (before_at, coalesce(before_id, 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid)))
   order by p.last_chapter_at desc, p.id desc
   limit least(greatest(coalesce(page_size, 20), 1), 50);
 $$;
-revoke all on function public.community_feed(text, timestamptz, uuid, jsonb, int) from public;
-grant execute on function public.community_feed(text, timestamptz, uuid, jsonb, int) to anon, authenticated;
+revoke all on function public.community_feed(text, timestamptz, uuid, jsonb, int, text, uuid) from public;
+grant execute on function public.community_feed(text, timestamptz, uuid, jsonb, int, text, uuid) to anon, authenticated;
+
+-- O banner da Home: uma história por dia, em rodízio. As publicadas, da mais
+-- antiga para a mais nova, e o dia de Brasília escolhe a vez; cada uma
+-- aparece antes de alguma repetir (enquanto ninguém publica nem tira do ar).
+create function public.community_featured(progress jsonb default '{}'::jsonb)
+returns table (
+  id uuid, title text, synopsis text, genre text, cover_color text, cover_path text, author_name text,
+  chapter_count int, last_chapter_at timestamptz, created_at timestamptz, handle text,
+  fresh_count int, latest_position int, total_words int, read_count int,
+  next_chapter_id text, next_position int, next_word_count int, next_excerpt text,
+  last_chapter_id text
+)
+language sql stable set search_path = '' as $$
+  with live as (
+    select p.id, row_number() over (order by p.created_at, p.id) - 1 as turn, count(*) over () as total
+    from public.publications p where p.chapter_count > 0
+  )
+  select f.* from live
+  cross join lateral public.community_feed(progress => progress, only_id => live.id) f
+  where live.turn = ((now() at time zone 'America/Sao_Paulo')::date - date '2026-01-01') % live.total;
+$$;
+revoke all on function public.community_featured(jsonb) from public;
+grant execute on function public.community_featured(jsonb) to anon, authenticated;
+
+-- Os blocos de coleção e de gênero do mosaico, com quantas histórias cada um
+-- tem. As mesmas regras de `collection` em community_feed.
+drop function if exists public.community_shelves();
+create function public.community_shelves()
+returns table (kind text, key text, story_count int)
+language sql stable set search_path = '' as $$
+  with live as (
+    select p.genre, p.created_at,
+      (select coalesce(sum(c.word_count), 0) from public.published_chapters c where c.publication_id = p.id) as words
+    from public.publications p where p.chapter_count > 0
+  )
+  select 'colecao', 'curtas', count(*)::int from live where words <= 4600
+  union all
+  select 'colecao', 'novas', count(*)::int from live where created_at > now() - interval '7 days'
+  union all
+  (select 'genero', genre, count(*)::int from live where genre <> '' group by genre order by count(*) desc, genre);
+$$;
+revoke all on function public.community_shelves() from public;
+grant execute on function public.community_shelves() to anon, authenticated;
 
 -- Limites por conta, à parte dos 20 MB da sincronização: 20 histórias
 -- publicadas e 300 capítulos, com 5 MB de texto (uns 150 capítulos de 3 mil

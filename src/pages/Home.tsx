@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, isInTrash } from '../db';
@@ -10,33 +10,61 @@ import { useAccount } from '../components/AccountDialogs';
 import { GenreSearch } from '../components/GenreSearch';
 import { chapterName, plural } from '../lib/text';
 import { useReadingProgress } from '../lib/reading';
-import { listFeed, usePublishedCover, type FeedCursor, type FeedItem } from '../sync/community';
+import {
+  FEED_PAGE,
+  getFeatured,
+  listFeed,
+  listShelves,
+  usePublishedCover,
+  type Collection,
+  type FeedCursor,
+  type FeedItem,
+  type Shelf,
+} from '../sync/community';
 import './Library.css';
 import './Home.css';
 
-const WEEK = 7 * 24 * 60 * 60 * 1000;
 /** Words a reader goes through in a minute, for "8 min". */
 const WORDS_PER_MINUTE = 230;
+const minutesOf = (words: number | null) => (words ? Math.max(1, Math.round(words / WORDS_PER_MINUTE)) : 0);
+
+const COLLECTIONS: Record<Collection, { title: string; note: (n: number) => string }> = {
+  curtas: { title: 'Para ler numa sentada', note: (n) => `${plural(n, 'história', 'histórias')} de até 20 min` },
+  novas: { title: 'Histórias novas', note: (n) => `${plural(n, 'publicada', 'publicadas')} esta semana` },
+};
 
 /**
- * The Home: the community's new chapters, one line per story, and above
- * them where the author stopped writing (or, without an account, an
- * invitation to start). Stories come a page at a time ("Carregar mais").
+ * The Home: the story of the day on a banner, and below it the community's
+ * stories in a mosaic of covers, newest chapter first, with blocks that open
+ * a collection or a genre. Above all, where the author stopped writing (or,
+ * without an account, an invitation to start). Stories come a page at a
+ * time ("Carregar mais").
  */
 export function Home() {
   const account = useAccount();
   const [genre, setGenre] = useState('');
+  const [collection, setCollection] = useState<Collection>();
   // undefined while the first page loads; null when it failed.
   const [feed, setFeed] = useState<FeedItem[] | null>();
   const [next, setNext] = useState<FeedCursor | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreFailed, setMoreFailed] = useState(false);
+  const [featured, setFeatured] = useState<FeedItem | null>(null);
+  const [shelves, setShelves] = useState<Shelf[]>([]);
   // Read when a page is asked for, without asking again when it changes:
   // reading happens on other pages, and coming back loads the Home again.
   const progress = useRef<Record<string, number>>({});
   progress.current = useReadingProgress();
-  // Answers to an older request (another genre) are dropped.
+  // Answers to an older request (another filter) are dropped.
   const request = useRef(0);
+  const filtered = !!genre || !!collection;
+
+  useEffect(() => {
+    if (!account.configured) return;
+    // The banner and the blocks are extras: without them, the mosaic still shows.
+    getFeatured(progress.current).then(setFeatured, (err) => console.error(err));
+    listShelves().then(setShelves, (err) => console.error(err));
+  }, [account.configured]);
 
   useEffect(() => {
     if (!account.configured) return setFeed(null);
@@ -44,7 +72,7 @@ export function Home() {
     setFeed(undefined);
     setNext(null);
     setMoreFailed(false);
-    listFeed(genre || undefined, progress.current).then(
+    listFeed({ genre, collection }, progress.current).then(
       (page) => {
         if (mine !== request.current) return;
         setFeed(page.items);
@@ -55,7 +83,7 @@ export function Home() {
         if (mine === request.current) setFeed(null);
       },
     );
-  }, [genre, account.configured]);
+  }, [genre, collection, account.configured]);
 
   async function loadMore() {
     if (!next || !feed) return;
@@ -63,7 +91,7 @@ export function Home() {
     setLoadingMore(true);
     setMoreFailed(false);
     try {
-      const page = await listFeed(genre || undefined, progress.current, next);
+      const page = await listFeed({ genre, collection }, progress.current, next);
       if (mine !== request.current) return;
       // A story that got a new chapter meanwhile could show up twice.
       const have = new Set(feed.map((f) => f.id));
@@ -77,9 +105,20 @@ export function Home() {
     }
   }
 
-  const items = feed ?? [];
-  const recentWeek = items.filter((f) => Date.now() - Date.parse(f.last_chapter_at) < WEEK);
-  const older = items.filter((f) => !recentWeek.includes(f));
+  function openShelf(shelf: Shelf) {
+    if (shelf.kind === 'genero') {
+      setGenre(shelf.key);
+      setCollection(undefined);
+    } else {
+      setCollection(shelf.key as Collection);
+      setGenre('');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // The banner's story is not repeated right below it.
+  const showBanner = !filtered && !!featured;
+  const items = (feed ?? []).filter((f) => !showBanner || f.id !== featured!.id);
 
   return (
     <div className="library home">
@@ -100,7 +139,24 @@ export function Home() {
       <main className="library-main home-main">
         <WritingBand signedIn={!!account.email} />
 
-        {account.configured && <GenreSearch value={genre} onChange={setGenre} />}
+        {showBanner && <Banner item={featured!} />}
+
+        {account.configured && (
+          <div className="home-filters">
+            {collection && (
+              <div className="genre-search">
+                <span className="genre-search-label">Coleção:</span>
+                <span className="genre-tag">
+                  {COLLECTIONS[collection].title}
+                  <button type="button" className="genre-tag-clear" aria-label="Tirar o filtro da coleção" onClick={() => setCollection(undefined)}>
+                    <Icon name="close" size={14} />
+                  </button>
+                </span>
+              </div>
+            )}
+            <GenreSearch value={genre} onChange={setGenre} />
+          </div>
+        )}
 
         {feed === undefined && <p className="home-quiet">Buscando os lançamentos…</p>}
         {feed === null && account.configured && (
@@ -108,14 +164,15 @@ export function Home() {
         )}
         {feed?.length === 0 && (
           <div className="empty home-empty">
-            {genre
-              ? <>Ainda não há histórias de {genre.toLowerCase()} publicadas.</>
-              : <>Ninguém publicou ainda. Que tal ser a primeira história? No menu da história, use “Publicar”.</>}
+            {collection
+              ? <>Nenhuma história nesta coleção{genre && <> com o gênero {genre.toLowerCase()}</>} por enquanto.</>
+              : genre
+                ? <>Ainda não há histórias de {genre.toLowerCase()} publicadas.</>
+                : <>Ninguém publicou ainda. Que tal ser a primeira história? No menu da história, use “Publicar”.</>}
           </div>
         )}
 
-        {recentWeek.length > 0 && <Section title="Esta semana" items={recentWeek} />}
-        {older.length > 0 && <Section title={recentWeek.length ? 'Antes' : 'Lançamentos'} items={older} />}
+        {items.length > 0 && <Mosaic items={items} shelves={filtered ? [] : shelves} onShelf={openShelf} />}
 
         {next && (
           <div className="home-more">
@@ -174,84 +231,142 @@ function WritingBand({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-function Section({ title, items }: { title: string; items: FeedItem[] }) {
+/** How far this reader got, or what is new: the little tag on a cover. */
+function tagOf(item: FeedItem): { text: string; isNew?: boolean } | null {
+  if (item.read_count > 0) {
+    return item.next_chapter_id ? { text: `cap. ${item.next_position} de ${item.chapter_count}` } : { text: 'em dia' };
+  }
+  // Every chapter came out this week: the story itself is new.
+  if (item.fresh_count === item.chapter_count) return { text: 'nova', isNew: true };
+  if (item.fresh_count > 1) return { text: `+${item.fresh_count} capítulos` };
+  if (item.fresh_count === 1) return { text: `cap. ${item.latest_position}` };
+  return null;
+}
+
+/** The button that opens the next chapter (or the last one, for a reader who is up to date). */
+function ReadLink({ item, className }: { item: FeedItem; className: string }) {
+  const started = item.read_count > 0;
+  const upToDate = started && !item.next_chapter_id;
+  const minutes = minutesOf(item.next_word_count);
   return (
-    <section className="home-section" aria-label={title}>
-      <h2 className="home-day">{title}</h2>
-      <ol className="home-list">
-        {items.map((f) => (
-          <StoryRow key={f.id} item={f} />
-        ))}
-      </ol>
+    <Link to={`/ler/${item.id}/${item.next_chapter_id ?? item.last_chapter_id}`} className={className}>
+      {upToDate ? 'Reler o último' : started ? `Continuar no ${item.next_position}` : 'Começar'}
+      {!upToDate && minutes > 0 && <span className="home-minutes">{minutes} min</span>}
+    </Link>
+  );
+}
+
+/** The average color of an image, from a 1 × 1 copy of it. */
+async function averageColor(blob: Blob): Promise<string | undefined> {
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(bitmap, 0, 0, 1, 1);
+    bitmap.close();
+    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+    return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The story of the day: the whole cover, never stretched, and the rest of
+ * the banner in the cover's color, darkened so light letters always read.
+ */
+function Banner({ item }: { item: FeedItem }) {
+  const cover = usePublishedCover(item.cover_path);
+  const [color, setColor] = useState(item.cover_color);
+  useEffect(() => {
+    if (!cover) return setColor(item.cover_color);
+    let alive = true;
+    averageColor(cover).then((c) => alive && setColor(c ?? item.cover_color));
+    return () => {
+      alive = false;
+    };
+  }, [cover, item.cover_color]);
+  const tag = tagOf(item);
+  const total = minutesOf(item.total_words);
+
+  return (
+    <section className="home-banner" style={{ background: `color-mix(in srgb, ${color} 42%, #14110d)` }} aria-label="Destaque do dia">
+      <Link to={`/ler/${item.id}`} className="home-banner-cover" aria-label={`${item.title}, página da história`}>
+        <Cover story={{ title: item.title, genre: '', coverColor: item.cover_color, coverImage: cover }} size="fill" />
+      </Link>
+      <div className="home-banner-body">
+        <span className="home-banner-kicker">
+          Destaque do dia{tag?.isNew ? ' · história nova' : ''}{item.genre && ` · ${item.genre}`}
+        </span>
+        <Link to={`/ler/${item.id}`} className="home-banner-title">{item.title}</Link>
+        <span className="home-banner-meta">
+          {item.handle ? `@${item.handle}` : item.author_name} · {plural(item.chapter_count, 'capítulo', 'capítulos')}
+          {total > 0 && ` · ${total} min`}
+        </span>
+        {item.next_excerpt && <p className="home-banner-excerpt">{item.next_excerpt}</p>}
+        <ReadLink item={item} className="home-banner-action" />
+      </div>
     </section>
   );
 }
 
-function StoryRow({ item }: { item: FeedItem }) {
-  const cover = usePublishedCover(item.cover_path);
-  const started = item.read_count > 0;
-  const upToDate = started && !item.next_chapter_id;
-  // Every chapter came out this week: the story itself is new.
-  const isNew = item.fresh_count === item.chapter_count;
-
-  const pill = isNew
-    ? 'história nova'
-    : item.fresh_count > 1
-      ? plural(item.fresh_count, 'capítulo novo', 'capítulos novos')
-      : item.fresh_count === 1
-        ? `capítulo ${item.latest_position}`
-        : null;
-
-  const target = item.next_chapter_id ?? item.last_chapter_id;
-  const minutes = item.next_word_count ? Math.max(1, Math.round(item.next_word_count / WORDS_PER_MINUTE)) : 0;
-
+/**
+ * The stories as a mosaic of covers, always in the shape of a book: in each
+ * page, the one with the most new chapters this week gets a big cover. The
+ * blocks of collections and genres go in between, each one once.
+ */
+function Mosaic({ items, shelves, onShelf }: { items: FeedItem[]; shelves: Shelf[]; onShelf: (s: Shelf) => void }) {
+  const tiles: ReactNode[] = [];
+  let shelf = 0;
+  for (let start = 0; start < items.length; start += FEED_PAGE) {
+    const page = items.slice(start, start + FEED_PAGE);
+    const big = page.reduce((best, f) => (f.fresh_count > best.fresh_count ? f : best), page[0]);
+    page.forEach((f, i) => {
+      tiles.push(<StoryTile key={f.id} item={f} big={f === big} />);
+      if ((i === 4 || i === 11) && shelf < shelves.length) {
+        const s = shelves[shelf++];
+        tiles.push(<ShelfTile key={`${s.kind}:${s.key}`} shelf={s} onOpen={() => onShelf(s)} />);
+      }
+    });
+  }
   return (
-    <li className="home-row">
-      <Link to={`/ler/${item.id}`} className="home-row-cover" aria-label={`${item.title}, página da história`}>
-        <Cover story={{ title: item.title, genre: '', coverColor: item.cover_color, coverImage: cover }} size="xs" />
-      </Link>
-      <div className="home-row-body">
-        <div className="home-row-head">
-          <Link to={`/ler/${item.id}`} className="home-row-title">{item.title}</Link>
-          {pill && <span className={`home-pill ${isNew ? 'is-new' : ''}`}>{pill}</span>}
-        </div>
-        <div className="home-row-meta">
-          {item.handle ? `@${item.handle}` : item.author_name}
-          {item.genre && ` · ${item.genre}`} · {plural(item.chapter_count, 'capítulo', 'capítulos')}
-        </div>
-        {started ? (
-          <>
-            <ProgressBar total={item.chapter_count} read={item.read_count} />
-            <div className="home-row-meta">
-              {upToDate ? 'Você está em dia' : `Você leu ${item.read_count} de ${plural(item.chapter_count, 'capítulo', 'capítulos')}`}
-            </div>
-          </>
-        ) : (
-          item.next_excerpt && <p className="home-excerpt">{item.next_excerpt}</p>
-        )}
-      </div>
-      <Link to={`/ler/${item.id}/${target}`} className={`btn btn-sm ${started && !upToDate ? 'btn-primary' : 'btn-outline'} home-row-action`}>
-        {upToDate ? 'Reler o último' : started ? `Ler o ${item.next_position}` : 'Começar'}
-        {!upToDate && minutes > 0 && <span className="home-minutes">{minutes} min</span>}
-      </Link>
-    </li>
+    <section className="home-mosaic-wrap" aria-label="Lançamentos">
+      <div className="home-mosaic">{tiles}</div>
+    </section>
   );
 }
 
-function ProgressBar({ total, read }: { total: number; read: number }) {
-  // Long stories get one bar, filled to the share read.
-  if (total > 24) {
-    return (
-      <span className="home-progress" aria-hidden="true">
-        <span className="home-progress-one"><span style={{ width: `${(read / total) * 100}%` }} /></span>
-      </span>
-    );
-  }
+function StoryTile({ item, big }: { item: FeedItem; big: boolean }) {
+  const cover = usePublishedCover(item.cover_path);
+  const tag = tagOf(item);
+  const by = item.handle ? `@${item.handle}` : item.author_name;
   return (
-    <span className="home-progress" aria-hidden="true">
-      {Array.from({ length: total }, (_, i) => (
-        <span key={i} className={i < read ? 'is-read' : ''} />
-      ))}
-    </span>
+    <Link
+      to={`/ler/${item.id}`}
+      className={`home-tile ${big ? 'is-big' : ''}`}
+      aria-label={[item.title, by && `de ${by}`, tag?.text].filter(Boolean).join(', ')}
+    >
+      <Cover story={{ title: item.title, genre: '', coverColor: item.cover_color, coverImage: cover }} size="fill" />
+      {tag && <span className={`home-tag ${tag.isNew ? 'is-new' : ''}`}>{tag.text}</span>}
+      {(cover || big) && (
+        <span className="home-tile-caption">
+          {cover && <span className="home-tile-name">{item.title}</span>}
+          {big && <span className="home-tile-by">{by}</span>}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function ShelfTile({ shelf, onOpen }: { shelf: Shelf; onOpen: () => void }) {
+  const collection = shelf.kind === 'colecao' ? COLLECTIONS[shelf.key as Collection] : undefined;
+  return (
+    <button type="button" className={`home-shelf ${collection ? 'is-collection' : ''}`} onClick={onOpen}>
+      <span className="home-shelf-title">{collection?.title ?? shelf.key}</span>
+      <span className="home-shelf-note">
+        {collection ? collection.note(shelf.story_count) : plural(shelf.story_count, 'história', 'histórias')}
+      </span>
+    </button>
   );
 }

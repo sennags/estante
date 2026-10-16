@@ -103,6 +103,7 @@ export type FeedItem = {
   handle: string | null;
   fresh_count: number;
   latest_position: number | null;
+  total_words: number;
   read_count: number;
   next_chapter_id: string | null;
   next_position: number | null;
@@ -116,17 +117,24 @@ export type FeedCursor = { at: string; id: string };
 
 export const FEED_PAGE = 20;
 
+/** The automatic collections of the Home (the same rules as community_feed). */
+export type Collection = 'curtas' | 'novas';
+
+/** What narrows the Home: a genre, a collection, or both. */
+export type FeedFilter = { genre?: string; collection?: Collection };
+
 /**
  * One page of the Home, newest chapter first. `progress` is how far this
  * device read each story (lib/reading.ts). `next` is null on the last page.
  */
 export async function listFeed(
-  genre: string | undefined,
+  filter: FeedFilter,
   progress: Record<string, number>,
   after?: FeedCursor,
 ): Promise<{ items: FeedItem[]; next: FeedCursor | null }> {
   const { data, error } = await supabase!.rpc('community_feed', {
-    genre_filter: genre ?? null,
+    genre_filter: filter.genre || null,
+    collection: filter.collection ?? null,
     before_at: after?.at ?? null,
     before_id: after?.id ?? null,
     progress,
@@ -136,6 +144,22 @@ export async function listFeed(
   const items = data as FeedItem[];
   const last = items[items.length - 1];
   return { items, next: items.length === FEED_PAGE ? { at: last.last_chapter_at, id: last.id } : null };
+}
+
+/** The story of the day on the Home's banner, in turns; null when nothing is published. */
+export async function getFeatured(progress: Record<string, number>): Promise<FeedItem | null> {
+  const { data, error } = await supabase!.rpc('community_featured', { progress });
+  if (error) throw error;
+  return (data as FeedItem[])[0] ?? null;
+}
+
+/** A block of the mosaic that opens a collection or a genre, with how many stories it has. */
+export type Shelf = { kind: 'colecao' | 'genero'; key: string; story_count: number };
+
+export async function listShelves(): Promise<Shelf[]> {
+  const { data, error } = await supabase!.rpc('community_shelves');
+  if (error) throw error;
+  return (data as Shelf[]).filter((s) => s.story_count > 0);
 }
 
 /* ---------- The author's side ---------- */
